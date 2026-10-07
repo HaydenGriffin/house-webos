@@ -1,0 +1,51 @@
+{
+  "url": "ws://homeassistant.local:8123/api/websocket",
+  "token": "a long-lived access token for a non-admin Home Assistant user",
+  "title": "House",
+  "locale": "en-GB",
+  "idle_seconds": 60,
+  "calendars": ["calendar.family"],
+  "door": "binary_sensor.front_door",
+  "lights": [
+    { "name": "Living room", "entity": "light.living_room" },
+    { "name": "Kitchen", "entity": "light.kitchen" },
+    { "name": "Hallway", "entity": "light.hallway" },
+    { "name": "Bedroom", "entity": "light.bedroom" },
+    { "name": "Study", "entity": "light.study" }
+  ],
+  "tiles": [
+    {
+      "name": "Warm living room",
+      "sub": "For 2 hours",
+      "icon": "radiator",
+      "toast": "Warming the living room for 2 hours",
+      "action": { "service": "script.turn_on", "target": { "entity_id": "script.warm_living_room" } }
+    }
+  ],
+  "tv": {
+    "title": "TV",
+    "source_sensor": "sensor.tv_source",
+    "sources": [
+      { "name": "Streamer", "icon": "televisionPlay", "action": { "service": "script.turn_on", "target": { "entity_id": "script.tv_streamer" } } },
+      { "name": "Console", "icon": "gamepadVariant", "action": { "service": "script.turn_on", "target": { "entity_id": "script.tv_console" } } }
+    ],
+    "wide": { "name": "Movie time", "icon": "movieOpenPlay", "toast": "Movie time", "action": { "service": "scene.turn_on", "target": { "entity_id": "scene.movie_time" } } }
+  },
+  "music": {
+    "title": "Home speakers",
+    "player": "media_player.home_speakers",
+    "extra": { "name": "Evening mix", "icon": "playlist", "action": { "service": "script.turn_on", "target": { "entity_id": "script.evening_mix" } } },
+    "toggle": { "name": "TV joins the speakers", "entity": "input_boolean.tv_in_speaker_group", "on": "Joins when music plays", "off": "Stays out" }
+  },
+  "people": [
+    { "name": "Alex", "person": "person.alex", "room": "sensor.alex_room" },
+    { "name": "Sam", "person": "person.sam" }
+  ],
+  "recap": {
+    "stats": "sensor.week_stats",
+    "attribute": "stats",
+    "cue": "script.tv_week_recap",
+    "tv": "media_player.living_room_tv",
+    "vacuum_map": "camera.vacuum_map"
+  }
+}

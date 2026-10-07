@@ -1,0 +1,8 @@
+House for webOS
+Copyright (c) 2026 Hayden Griffin. MIT License (see LICENSE).
+
+Bundled third-party material:
+
+- app/icons.js: icon paths from Material Design Icons (https://pictogrammers.com/library/mdi/), Apache License 2.0.
+- app/fonts/: Atkinson Hyperlegible Next (Braille Institute of America) and Lexend (The Lexend Project Authors),
+  SIL Open Font License 1.1. See app/fonts/LICENSE.txt.

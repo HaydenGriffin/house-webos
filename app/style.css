@@ -1,0 +1,367 @@
+/* House for webOS at 1920×1080, read from the sofa and driven by arrows + OK. Sizes are set for ~3 m from a 55" panel. */
+@font-face { font-family: 'House Text'; font-weight: 200 800; src: url(fonts/ahn-latin.woff2) format('woff2'); }
+/* Latin Extended (ą, ł, ő, ž…); fetched only when such a letter is on screen. */
+@font-face { font-family: 'House Text'; font-weight: 200 800; src: url(fonts/ahn-latin-ext.woff2) format('woff2'); unicode-range: U+0100-024F, U+1E00-1EFF; }
+@font-face { font-family: 'House Text'; font-weight: 200 800; src: url(fonts/lexend-latin.woff2) format('woff2'); unicode-range: U+0030-0039; }
+@font-face { font-family: Lexend; font-weight: 200 800; src: url(fonts/lexend-latin.woff2) format('woff2'); }
+
+:root {
+  --page: #0b0c0f; --panel: #16181d; --raised: #22252b; --raised-2: #2e3239; --line: rgba(255,255,255,.07);
+  --text: #f4f2ee; --muted: #b9b4ac; --warm: #ffc76b; --warm-ink: #2a1a04; --warm-rgb: 255,186,84;
+  --accent: #80d8ff; --accent-ink: #04222e; --warn: #ff9d5c; --alert: #ff8a80;
+  --warn-ground: #382a12; --error-ground: #5a1616; --error-text: #ffd7d2; --toast-ground: rgba(12,13,16,.94);
+  --text-font: 'House Text', 'Atkinson Hyperlegible Next', Roboto, Arial, sans-serif;
+  --num-font: Lexend, 'Atkinson Hyperlegible Next', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--page); color: var(--text); }
+body { font: 600 34px/1.2 var(--text-font); cursor: none; -webkit-font-smoothing: antialiased; }
+::selection { background: var(--accent); color: var(--accent-ink); }
+button { font: inherit; color: inherit; border: 0; background: none; cursor: none; text-align: left; }
+button:focus { outline: none; }
+svg { display: block; width: 100%; height: 100%; fill: currentColor; }
+
+/* 5% overscan-safe margins. */
+#house { position: relative; display: flex; flex-direction: column; width: 100%; height: 100%; padding: 50px 96px 46px; }
+#house > * + * { margin-top: 24px; }
+#house[aria-busy='true'] .layout, #house[aria-busy='true'] .bottom #idle { opacity: .55; }
+
+.top { display: flex; align-items: center; justify-content: space-between; }
+h1 { font-size: 56px; line-height: 1; }
+#date, .next { margin-top: 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 400; font-size: 30px; color: var(--muted); }
+.next { margin-top: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.title { flex: 1 1 auto; min-width: 0; margin-right: 32px; }
+.glance { flex: none; }
+.chip { white-space: nowrap; }
+.person .initial { display: grid; place-items: center; padding: 0; font-size: 28px; font-weight: 600; }
+.person .where { font-weight: 400; color: var(--muted); }
+.person.out .initial { background: transparent; box-shadow: inset 0 0 0 3px var(--raised-2); color: var(--muted); }
+.glance { display: flex; align-items: center; }
+#clock { font: 600 76px/1 var(--num-font); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+.chip { display: flex; align-items: center; min-height: 76px; padding: 8px 28px 8px 8px;
+  border-radius: 40px; background: var(--panel); font-size: 30px; }
+.chip .disc { width: 60px; height: 60px; padding: 14px; }
+.chip.open { background: var(--warn-ground); color: var(--warn); }
+.chip.open .disc { background: transparent; box-shadow: inset 0 0 0 3px var(--warn); color: var(--warn); }
+
+#banner { padding: 16px 28px; border-radius: 24px; background: var(--error-ground); color: var(--error-text);
+  border: 2px solid rgba(255,138,128,.45); font-size: 30px; }
+
+.layout { flex: 1; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); column-gap: 40px; min-height: 0; transition: opacity .2s ease-out; }
+section { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+h2 { font-size: 36px; line-height: 1.15; margin-bottom: 16px; }
+.sub { font-weight: 400; font-size: 30px; color: var(--muted); }
+
+/* Discs: the House signature. Filled warm + halo means on, and only on. */
+.disc { display: block; flex: none; width: 84px; height: 84px; padding: 21px; border-radius: 50%;
+  background: var(--raised-2); color: var(--text); }
+.ico { display: inline-block; flex: none; width: 44px; height: 44px; }
+.ico.warm { color: var(--warm); }
+
+/* Lights: a 2×3 grid of room tiles. */
+.rooms { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-auto-rows: 1fr; gap: 22px; }
+.tile { position: relative; display: grid; grid-template-columns: auto 1fr; grid-template-rows: 1fr 1fr;
+  column-gap: 24px; align-items: center; padding: 22px 28px; border-radius: 30px; background: var(--panel); }
+.tile .disc { grid-row: 1 / 3; }
+.tile .name { align-self: end; font-size: 34px; line-height: 1.15; min-width: 0; }
+.tile .state { align-self: start; font-weight: 400; font-size: 30px; color: var(--muted); }
+.tile.on { background: radial-gradient(120% 100% at 0% 0%, rgba(var(--warm-rgb), .30), rgba(var(--warm-rgb), 0) 62%), var(--panel); }
+.tile.on .disc, .row.on .disc { background: var(--warm); color: var(--warm-ink); box-shadow: 0 0 22px rgba(var(--warm-rgb), .45); }
+.tile.on .state { color: var(--warm); }
+
+.side { display: grid; grid-template-rows: auto 1fr; row-gap: 22px; min-height: 0; }
+.side section { padding: 22px 28px 24px; border-radius: 30px; background: var(--panel); }
+.side h2 { margin-bottom: 2px; }
+.tv .head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
+.tv .head h2 { margin: 0; }
+
+
+/* Source switch: selection is sky (the Sky Rule), never warm. */
+.segments { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 8px; padding: 8px; border-radius: 46px; background: var(--raised); }
+.seg { display: flex; align-items: center; justify-content: center; height: 80px; border-radius: 40px; font-size: 32px; }
+.seg.selected { background: var(--accent); color: var(--accent-ink); }
+.pill { display: inline-flex; align-items: center; height: 84px; padding: 0 40px 0 32px;
+  border-radius: 42px; background: var(--raised-2); font-size: 32px; }
+.pill.wide { width: 100%; margin-top: 16px; justify-content: center; }
+.round { display: flex; align-items: center; justify-content: center; flex: none; width: 84px; height: 84px; border-radius: 50%; background: var(--raised-2); }
+
+.music { display: flex; flex-direction: column; }
+.music .now { margin: 6px 0 16px; min-height: 80px; }
+.track { font-size: 36px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.music .sub { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.transport { display: flex; margin-bottom: 16px; }
+.grow { flex: 1; justify-content: center; }
+.row { display: flex; align-items: center; margin-top: auto; padding: 10px 22px 10px 10px; border-radius: 30px; background: var(--raised); }
+.row .disc { width: 72px; height: 72px; padding: 18px; }
+.row .text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.row .name { font-size: 30px; }
+.row .state { font-weight: 400; font-size: 28px; color: var(--muted); }
+.switch { position: relative; flex: none; width: 104px; height: 60px; border-radius: 30px; background: var(--raised-2); }
+.switch span { position: absolute; top: 8px; left: 8px; width: 44px; height: 44px; border-radius: 50%; background: var(--muted); transition: transform .15s ease-out; }
+.row.on .switch { background: var(--warm); }
+.row.on .switch span { transform: translateX(44px); background: var(--warm-ink); }
+
+.bottom { display: flex; align-items: center; }
+.bottom .pill, .bottom .chip { flex: none; white-space: nowrap; }
+.bottom #idle { text-align: right; font-size: 28px; line-height: 1.2; }
+
+/* Focus is the whole interface on a remote: sky ring, a lift, and a brighter ground. */
+.tile, .seg, .pill, .round, .row { transition: transform .12s ease-out, box-shadow .12s ease-out, background-color .12s ease-out; }
+.tile:focus, .seg:focus, .pill:focus, .round:focus, .row:focus {
+  box-shadow: 0 0 0 6px var(--page), 0 0 0 12px var(--accent), 0 14px 36px rgba(0,0,0,.55); transform: scale(1.03); }
+.pill:focus, .round:focus, .seg:focus:not(.selected) { background: var(--raised-2); filter: brightness(1.25); }
+[disabled] { opacity: .45; }
+[aria-busy='true'] { opacity: .7; }
+
+/* Bottom right, in the footer's empty side: on the TV the top carries the door chip and the clock. */
+#toast { position: absolute; bottom: 46px; right: 96px; max-width: 1040px; padding: 20px 40px;
+  border-radius: 44px; background: var(--toast-ground); border: 2px solid rgba(255,255,255,.12);
+  box-shadow: 0 10px 30px rgba(0,0,0,.5); font-size: 32px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#toast.error { background: var(--error-ground); border-color: rgba(255,138,128,.45); color: var(--error-text); }
+#idle.closing { color: var(--warn); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* Chromium 79 has no flex gap (Chrome 84+): sibling margins instead. */
+.glance > * + * { margin-left: 20px; }
+.glance > #clock { margin-left: 36px; }
+.chip > * + * { margin-left: 16px; }
+.seg > .ico { margin-right: 14px; }
+.pill > .ico { margin-right: 16px; }
+.transport > * + * { margin-left: 18px; }
+.row > * + * { margin-left: 24px; }
+.row .text > * + * { margin-top: 4px; }
+.bottom > * + * { margin-left: 20px; }
+.bottom #idle { margin-left: auto; }
+
+/* Week recap, Wrapped-style: one idea per card, a hero number or picture and at most one line, read from the sofa.
+   Full screen over House, same 5% overscan margins. The two people keep one colour each (cornflower, rose) on names,
+   discs and bars; warm is the progress fill, the badge, the belt and the crown. */
+:root { --p1: #8ab4ff; --p1-ink: #0a1a33; --p2: #ff9ecb; --p2-ink: #33081d; --gold: #f4c04e; --down: #8ee6a6; }
+#recap { position: fixed; top: 0; left: 0; width: 1920px; height: 1080px; z-index: 10; display: flex; flex-direction: column;
+  padding: 56px 96px 60px; background: radial-gradient(70% 90% at 82% 50%, rgba(255,255,255,.04), rgba(255,255,255,0) 70%), var(--page); }
+.r-bars { display: flex; flex: none; }
+.r-bar { flex: 1; height: 8px; border-radius: 4px; background: var(--raised-2); overflow: hidden; }
+.r-bar + .r-bar { margin-left: 12px; }
+.r-bar > span { display: block; width: 0; height: 100%; background: var(--warm); }
+.r-top { display: flex; justify-content: space-between; flex: none; margin-top: 22px; font-weight: 400; font-size: 30px; color: var(--muted); }
+.r-hint { font-variant-numeric: tabular-nums; }
+#recap.r-auto .r-top > p:first-child { visibility: hidden; }
+.r-stage { position: relative; flex: 1; }
+
+.r-card { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center;
+  transition: opacity .4s ease-in, transform .4s ease-in; }
+.r-body { position: relative; max-width: 1340px; }
+.r-widecard .r-body { width: 100%; max-width: none; }
+.r-mark { position: absolute; top: 50%; right: -30px; width: 600px; height: 600px; margin-top: -300px; color: rgba(255,255,255,.045);
+  opacity: 0; transform: scale(.94); transition: opacity 1.2s ease-out, transform 1.6s cubic-bezier(.2,.7,.2,1); }
+
+.r-label { display: flex; align-items: center; font-size: 44px; line-height: 1.1; }
+.r-label .disc { width: 96px; height: 96px; padding: 24px; }
+.r-label .disc + span { margin-left: 26px; }
+.r-big { margin-top: 26px; font: 600 300px/.92 var(--num-font); font-variant-numeric: tabular-nums; letter-spacing: -0.045em; white-space: nowrap; }
+.r-unit { margin-left: 32px; font: 600 72px/1 var(--text-font); letter-spacing: 0; color: var(--muted); }
+.r-title { margin-top: 36px; font-size: 148px; line-height: 1; }
+.r-line { margin-top: 30px; font-size: 62px; line-height: 1.15; }
+.r-sub { margin-top: 16px; font-weight: 400; font-size: 42px; line-height: 1.25; color: var(--muted); }
+.r-intro .r-line { margin-top: 40px; font-weight: 400; font-size: 52px; }
+.r-p1 { color: var(--p1); }
+.r-p2 { color: var(--p2); }
+.r-main { margin-top: 44px; }
+
+/* Each card rises in, its parts a beat apart; the previous one slides away in the direction of travel. */
+.r-step { opacity: 0; transform: translateY(44px); transition: opacity .7s ease-out, transform .8s cubic-bezier(.2,.7,.2,1); }
+.r-in .r-step, .r-in .r-mark { opacity: 1; transform: none; }
+.r-step:nth-child(2) { transition-delay: .12s; }
+.r-step:nth-child(3) { transition-delay: .32s; }
+.r-step:nth-child(4) { transition-delay: .46s; }
+.r-main ~ .r-step { transition-delay: .62s; }
+.r-main ~ .r-step ~ .r-step { transition-delay: .76s; }
+.r-card.r-out { opacity: 0; }
+.r-card.r-out.r-fwd { transform: translateX(-80px); }
+.r-card.r-out.r-bwd { transform: translateX(80px); }
+
+/* Held back until the card's reveal (its timer, or the first press of Right). */
+.r-hold { opacity: 0; transform: translateY(40px); transition: opacity .6s ease-out, transform .8s cubic-bezier(.2,.7,.2,1); }
+.r-revealed .r-hold { opacity: 1; transform: none; }
+.r-revealed .r-hold:nth-child(2) { transition-delay: .15s; }
+.r-revealed .r-hold:nth-child(3) { transition-delay: .4s; }
+
+/* Intro: the title, then it lifts away and the week's badge rises in its place. */
+.r-phases { position: relative; width: 1728px; height: 560px; }
+.r-phase { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; }
+.r-pre { transition: opacity .5s ease-in, transform .6s ease-in; }
+.r-revealed .r-pre { opacity: 0; transform: translateY(-70px); }
+.disc.r-badge-disc { background: var(--warm); color: var(--warm-ink); box-shadow: 0 0 40px rgba(var(--warm-rgb), .5); }
+.r-badge { margin-top: 30px; font-size: 200px; line-height: 1; letter-spacing: -0.03em;
+  background: linear-gradient(100deg, #ffe7b8, var(--warm) 45%, #ff9d5c); -webkit-background-clip: text; color: transparent; }
+.r-intro .r-post .r-line { margin-top: 36px; }
+.r-revealed .r-post .r-hold { transition-delay: .35s; }
+.r-revealed .r-post .r-hold:nth-child(2) { transition-delay: .5s; }
+.r-revealed .r-post .r-hold:nth-child(3) { transition-delay: .75s; }
+
+/* A headline number with something beside it: the energy trend, or the week's dinners. */
+.r-with { display: flex; align-items: flex-end; }
+.r-with .r-big { flex: none; }
+.r-aside { flex: 1 1 auto; min-width: 0; margin-left: 96px; padding-bottom: 8px; }
+
+/* Energy: a faint eight-week strip, then the change in its colour, up warm-orange, down green. */
+.r-spark { display: flex; align-items: flex-end; height: 110px; margin-bottom: 28px; }
+.r-spark span { width: 26px; border-radius: 5px 5px 2px 2px; background: rgba(185,180,172,.18); }
+.r-spark span + span { margin-left: 10px; }
+.r-spark .r-now { background: rgba(244,242,238,.7); }
+.r-spark .r-none { background: var(--raised); }
+.r-delta { display: flex; align-items: center; font: 600 128px/1 var(--num-font); letter-spacing: -0.03em; white-space: nowrap; }
+.r-delta.r-up { color: var(--warn); }
+.r-delta.r-down { color: var(--down); }
+.r-tri { flex: none; width: 190px; height: 190px; margin: -40px -30px -40px -56px; }
+.r-delta-what { margin-top: 12px; font-weight: 400; font-size: 40px; color: var(--muted); }
+
+/* One person against another: a person each side, the week's paired bars between, each day's winner lit. */
+.r-versus { display: flex; align-items: flex-end; }
+.r-side { flex: none; width: 420px; }
+.r-side-p2 { text-align: right; }
+.r-who { font-size: 44px; line-height: 1.15; white-space: nowrap; }
+.r-side-n { margin-top: 10px; font: 600 112px/1 var(--num-font); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; white-space: nowrap; }
+.r-pairs { flex: 1; min-width: 0; display: flex; align-items: flex-end; margin: 0 48px; }
+.r-pair { flex: 1; min-width: 0; text-align: center; }
+.r-pair-bars { display: flex; align-items: flex-end; justify-content: center; height: 230px; }
+.r-pbar { width: 34px; border-radius: 8px 8px 3px 3px; }
+.r-pbar + .r-pbar { margin-left: 8px; }
+.r-pbar.r-p1 { background: var(--p1); }
+.r-pbar.r-p2 { background: var(--p2); }
+.r-pbar.r-lost { opacity: .3; }
+.r-pbar.r-none { height: 8px; background: var(--raised-2); }
+.r-pair-day { margin-top: 14px; font-weight: 400; font-size: 30px; color: var(--muted); }
+/* Rings vs step goals: a dot each per day, lit in the person's colour when the goal was made. */
+.r-ticks .r-pair-bars { height: auto; }
+.r-tick { width: 34px; height: 34px; border-radius: 50%; border: 5px solid var(--raised-2); }
+.r-tick + .r-tick { margin-left: 10px; }
+.r-tick.r-on.r-p1 { border-color: var(--p1); background: var(--p1); }
+.r-tick.r-on.r-p2 { border-color: var(--p2); background: var(--p2); }
+.r-tick.r-none { border-style: dashed; opacity: .4; }
+/* The shower duel: two averages with a quiet "vs" between. */
+.r-vs { flex: 1; min-width: 0; padding-bottom: 20px; text-align: center; font-size: 56px; color: var(--muted); }
+/* The steps belt: a gold strap with a round plate, by its holder's name. */
+.r-belt { position: relative; display: inline-block; vertical-align: middle; width: 112px; height: 34px; margin: -6px 0 0 22px; border-radius: 9px;
+  background: linear-gradient(180deg, #ffe08a, #e0a530 55%, #a8721a); box-shadow: 0 0 22px rgba(var(--warm-rgb), .45); }
+.r-belt i { position: absolute; top: 50%; left: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; padding: 12px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #fff4cc, var(--gold) 55%, #b7801a); border: 3px solid #8a5c10; color: #6b4200; }
+
+/* Quiz: three tiles; at the reveal the right one lights sky and grows, the others fall back. */
+.r-question { margin-top: 34px; max-width: 1560px; font-size: 84px; line-height: 1.12; }
+.r-options { display: flex; margin-top: 60px; }
+.r-options > div { flex: 1; min-width: 0; }
+.r-options > div + div { margin-left: 36px; }
+.r-option { height: 210px; padding: 0 30px; border-radius: 36px; background: var(--panel); text-align: center;
+  font: 600 100px/210px var(--num-font); letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: opacity .5s ease-out, transform .7s cubic-bezier(.2,1.4,.4,1), background-color .4s, color .4s, box-shadow .6s; }
+.r-revealed .r-option { opacity: .22; transform: scale(.94); }
+.r-revealed .r-option.r-correct { opacity: 1; transform: scale(1.06); background: var(--accent); color: var(--accent-ink); box-shadow: 0 0 70px rgba(128,216,255,.45); }
+.r-quizcard .r-line { margin-top: 56px; }
+.r-revealed.r-quizcard .r-line { transition-delay: .7s; }
+.r-quizcard .r-mark, .r-winnercard .r-mark, .r-tilecard .r-mark, .r-nextcard .r-mark { display: none; }
+
+/* What we ate: the dinners beside the number, Monday to Sunday. */
+.r-mealcard .r-with { align-items: center; }
+.r-mealcard .r-aside { padding-bottom: 0; }
+.r-meal { display: flex; align-items: baseline; }
+.r-meal + .r-meal { margin-top: 18px; }
+.r-meal-day { flex: none; width: 96px; font-weight: 400; font-size: 32px; color: var(--muted); }
+.r-meal-name { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 48px; line-height: 1.2; }
+
+/* Max: his own map of the floor on a dark panel (the picture is transparent), the cleans beside it. */
+.r-maxcard .r-body { display: flex; align-items: center; }
+.r-max-text { flex: 1; min-width: 0; padding-right: 64px; }
+.r-map { flex: none; width: 680px; height: 820px; padding: 40px; border-radius: 44px; background: var(--panel); transform: scale(.94); }
+.r-maxcard .r-mark { display: none; }
+.r-maxcard .r-line { font-size: 56px; }
+.r-map img { display: block; width: 100%; height: 100%; object-fit: contain; }
+
+/* The week on a plate: the food pictures as framed snaps, each dropping in at its own small tilt; the line after them. */
+.r-platecard .r-mark { display: none; }
+.r-platecard .r-main { margin-top: 36px; }
+.r-plates { display: flex; flex-wrap: wrap; align-content: center; justify-content: center; height: 560px; margin: 0 -14px; }
+.r-plate { flex: none; height: 532px; margin: 14px; padding: 12px; border-radius: 34px; background: var(--raised);
+  box-shadow: 0 26px 60px rgba(0,0,0,.55); opacity: 0; transform: translateY(-70px) scale(1.12) rotate(var(--tilt));
+  transition: opacity .45s ease-out, transform .9s cubic-bezier(.2,1.3,.4,1); }
+.r-plates-2 .r-plate { height: 252px; }
+.r-in .r-plate { opacity: 1; transform: rotate(var(--tilt)); }
+/* A slight zoom crops the app buttons that recipe pictures saved from Lifesum screenshots carry in their corners. */
+.r-plate span { display: block; height: 100%; overflow: hidden; border-radius: 24px; }
+.r-plate img { display: block; width: 100%; height: 100%; object-fit: cover; transform: scale(1.12); }
+.r-platecard .r-line { margin-top: 40px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.r-platecard .r-main ~ .r-step { transition-delay: 1.3s; }
+
+/* New record: the record as the hero, a burst of sparkles from the big trophy behind it. */
+.r-recordcard .r-mark { color: rgba(var(--warm-rgb), .1); }
+.r-hero-text { margin-top: 34px; max-width: 1220px; font-size: 120px; line-height: 1.04; letter-spacing: -0.02em; }
+.r-burst { position: absolute; top: 50%; right: 270px; width: 0; height: 0; }
+.r-ray { position: absolute; top: 0; left: 0; width: 0; height: 0; }
+.r-ray i { position: absolute; top: -14px; left: 0; width: 28px; height: 28px; opacity: 0; color: var(--warm); animation: r-fly-0 1.6s cubic-bezier(.15,.75,.3,1) both; }
+.r-ray i:empty { top: -7px; width: 14px; height: 14px; border-radius: 50%; background: currentColor; }
+.r-ray .r-spark-1 { color: var(--p1); animation-name: r-fly-1; }
+.r-ray .r-spark-2 { color: var(--p2); animation-name: r-fly-2; }
+@keyframes r-fly-0 { 0% { opacity: 0; transform: translateX(60px) scale(.3); } 18% { opacity: 1; } 100% { opacity: 0; transform: translateX(330px) scale(1) rotate(120deg); } }
+@keyframes r-fly-1 { 0% { opacity: 0; transform: translateX(60px) scale(.3); } 18% { opacity: 1; } 100% { opacity: 0; transform: translateX(430px) scale(.9) rotate(-90deg); } }
+@keyframes r-fly-2 { 0% { opacity: 0; transform: translateX(60px) scale(.3); } 18% { opacity: 1; } 100% { opacity: 0; transform: translateX(260px) scale(1.1) rotate(60deg); } }
+
+/* The house says: one sentence, large, under a warm quote mark. */
+.r-quote { margin-top: 40px; max-width: 1600px; font-size: 92px; line-height: 1.14; letter-spacing: -0.01em; }
+.r-quote-long { font-size: 72px; }
+.r-quote-mark { display: block; width: 150px; height: 150px; margin: 0 0 6px -18px; color: var(--warm); }
+
+/* Month or year in numbers: three by two tiles, one figure each. */
+.r-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.r-tile { min-width: 0; min-height: 250px; padding: 30px 36px 32px; border-radius: 32px; background: var(--panel); }
+.r-tile-label { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 400; font-size: 34px; color: var(--muted); }
+.r-tile-n { margin-top: 18px; font: 600 96px/1 var(--num-font); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; white-space: nowrap; }
+.r-tile-unit { margin-left: 16px; font: 600 40px/1 var(--text-font); letter-spacing: 0; color: var(--muted); }
+.r-tile-who { margin-top: 12px; font-size: 38px; }
+.r-tile-pair { display: flex; align-items: baseline; justify-content: space-between; margin-top: 18px; font-size: 36px; }
+.r-tile-pair b { margin-left: 16px; font: 600 58px/1.05 var(--num-font); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--text); white-space: nowrap; }
+
+/* Next week: the forecast strip, then the challenge. */
+.r-forecast { display: flex; }
+.r-day { flex: none; width: 200px; padding: 24px 0 28px; border-radius: 32px; background: var(--panel); text-align: center; }
+.r-day + .r-day { margin-left: 22px; }
+.r-day-name { font-weight: 400; font-size: 32px; color: var(--muted); }
+.r-day-icon { display: block; width: 80px; height: 80px; margin: 14px auto 12px; }
+.r-day-temp { font: 600 50px/1 var(--num-font); }
+.r-day-temp span { margin-left: 12px; font-weight: 400; font-size: 34px; color: var(--muted); }
+.r-nextcard .r-line { margin-top: 56px; max-width: 1600px; }
+
+/* The winner: each category's chip one by one, a drumroll, then the name huge in its colour under a crown. */
+.r-chips { display: flex; margin-top: 52px; transition: opacity .6s ease-out; }
+.r-chip { flex: 1; min-width: 0; padding: 26px 32px 28px; border-radius: 32px; background: var(--panel); }
+.r-chip + .r-chip { margin-left: 24px; }
+.r-chip-label { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 400; font-size: 32px; color: var(--muted); }
+.r-chip-who { margin-top: 8px; font-size: 48px; line-height: 1.1; }
+.r-revealed .r-chips { opacity: .4; }
+.r-verdict { position: relative; height: 300px; margin-top: 56px; }
+.r-drum { position: absolute; top: 50%; left: 0; margin-top: -22px; }
+.r-drum i { display: inline-block; width: 44px; height: 44px; border-radius: 50%; background: var(--muted); animation: r-beat .5s ease-in-out infinite alternate; }
+.r-drum i + i { margin-left: 28px; }
+.r-drum i:nth-child(2) { animation-delay: .17s; }
+.r-drum i:nth-child(3) { animation-delay: .34s; }
+@keyframes r-beat { from { opacity: .25; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
+.r-revealed .r-drum { opacity: 0 !important; transition: opacity .2s !important; transition-delay: 0s !important; }
+.r-winner { display: flex; align-items: center; height: 300px; font-size: 240px; line-height: 1; letter-spacing: -0.03em; white-space: nowrap;
+  transform: scale(1.3); transform-origin: 0 50%; transition: opacity .35s ease-out, transform .8s cubic-bezier(.2,1.5,.35,1); }
+.r-crown { flex: none; width: 200px; height: 200px; margin-right: 44px; color: var(--gold);
+  transform: translateY(-90px) rotate(-16deg); transition: transform .8s cubic-bezier(.2,1.6,.4,1) .2s; }
+.r-revealed .r-crown { transform: none; }
+.r-draw { background: linear-gradient(90deg, var(--p1), var(--p2)); -webkit-background-clip: text; color: transparent; }
+/* Guess the week: the question and both guesses, then the answer, smaller than the winner's name to leave room. */
+.r-guesscard .r-question { font-size: 72px; }
+.r-guesscard .r-chips { margin-top: 40px; max-width: 1100px; }
+.r-guess-verdict, .r-guess-answer { height: 210px; }
+.r-guess-verdict { margin-top: 30px; }
+.r-guess-answer { font-size: 180px; }
+.r-guesscard .r-line { margin-top: 10px; }
+
+/* People chips sit in one wrapper so the list can come from the config. */
+#people { display: flex; align-items: center; }
+#people > * + * { margin-left: 20px; }

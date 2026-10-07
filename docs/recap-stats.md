@@ -1,0 +1,57 @@
+# Week recap stats
+
+The recap reads one JSON object from an attribute of a Home Assistant entity (`recap.stats` and `recap.attribute` in
+the config; the attribute defaults to `stats`). Anything can produce it: a template sensor, an automation that calls
+`python_script`, AppDaemon, Node-RED, or a script outside Home Assistant that posts to the REST API.
+
+Every section is optional. A card whose data is missing or incomplete is left out, and the recap only plays when at
+least two cards are ready. Stats older than eight days (by `generated_at`) are ignored.
+
+[`app/demo.js`](../app/demo.js) has a complete example: the `recap()` function returns the object behind every card in
+the README.
+
+## Top level
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `generated_at` | ISO 8601 string | Required. |
+| `window` | string | Shown on the first card, e.g. `"Mon 28 Sep to Sun 4 Oct"`. |
+| `currency` | ISO 4217 code | For money figures. Defaults to `GBP`. |
+| `people` | `[{ "id": "alex", "name": "Alex" }, …]` | Up to two. The duels need exactly two. Per-person figures below are keyed by `id`; a winner or `who` may be given as an id or a name. |
+
+## Cards, in the order they play
+
+| Key | Card | Shape |
+| --- | --- | --- |
+| `badge` | The intro reveals "This week you were…" | `{ title, why?, icon? }` |
+| `duel` | Steps, two people over the week's paired bars | `{ wins: {id: n}, totals: {id: n}, days: [{ day, <id>: steps, winner? }] }` |
+| `belt` | A line under the steps duel | `{ holder, status: "first" \| "new" \| "defends", previous?, weeks? }` |
+| `goals` | Days each person met their own goal | `{ label?, <id>: { hit, of }, days: [{ day, <id>: true \| false \| null }], winner? }` (needs `of` ≥ 4) |
+| `sleep` | Average night each | `{ avg: {id: minutes}, nights: [{ day, <id>: minutes }], bed_race?: { who, nights, of } }` |
+| `restless` | Up in the night | `{ kind: "worst", who, times, day }` or `{ kind: "calm" }` |
+| `showers` | The shower duel | `{ <id>: { count, avg_min, avg_temp? }, quickest?: { who, minutes, day } }` |
+| `energy` | The week's energy cost | `{ week_cost, vs_last_week_pct?, last_year_cost?, line? }` |
+| `trends` | The sparkline beside energy | `{ energy_cost: [eight weekly values, oldest first, null for gaps] }` |
+| `quiz` | Three tiles, one lights up | `{ question, options: [3], answer_index, reveal?, icon? }` |
+| `watched` | TV hours | `{ hours?, top?: [{ title }], binge?: { day, hours } }`. Without `hours`, the TV entity's history is used. |
+| `dinners` | The week's dinners | `{ days: [{ day, meal }] }` |
+| `food` | The week on a plate | `{ photos: [paths or URLs], pick: "new" \| "top" \| "leaves", new?: [names], top?: { name, days }, leaves?, leaves_who? }` (needs 3+ photos) |
+| `vacuum` | The robot vacuum's week | `{ name?, cleans, m2?, line?, map_entity? }`. The map is a camera's picture (`recap.vacuum_map` or `map_entity`). |
+| `records` | A new record, with sparkles | `[{ text: "Headline: detail", icon? }]`; the first one is shown. |
+| `house_says` | One sentence in the house's voice | `{ text }` |
+| `month_recap`, `year_recap` | Up to six tiles | `{ label, steps?: {id: n}, duel?: {id: n}, sleep_avg?: {id: minutes}, energy_cost?, best_day?: { who, steps }, best_night?: { who, minutes }, tv_hours?, vacuum_cleans?, vacuum_name? }` |
+| `next_week` | Forecast and a challenge | `{ forecast: [{ day, condition, high, low? }], challenge? }`. `condition` uses Home Assistant's weather conditions. |
+| `highlights` | Free-form one-number cards | `[{ label, value? \| text?, unit?, line?, icon? }]`, up to four |
+| `guess` | Who called it | `{ question, answer: <id> \| "draw", guesses: {id: <id>}, right: [ids] }` |
+| `winner` | The finale | `{ name: <id> \| "draw", categories: [{ label, who? }] }` (up to six) |
+
+Icons are [Material Design Icons](https://pictogrammers.com/library/mdi/) names in camelCase or kebab-case
+(`"weather-night"`, `"mdi:owl"`), from the set in [`app/icons.js`](../app/icons.js). Unknown names fall back to a
+sparkle.
+
+## Playing it automatically
+
+Set `recap.cue` to a script. When that script starts, an open House plays the recap without a remote and closes when
+it ends. Start the script from an automation, for example on Sunday evening once the TV is on and House has been
+opened on it. The script needs to keep running for as long as the recap plays (a `delay` of a couple of minutes is
+enough), because its running state is the signal.
