@@ -387,12 +387,24 @@
         return toast('The week recap isn’t ready yet.');
       }
       lastPress = Date.now();
-      recap = window.HouseRecap.play($('recap'), cards, { auto: auto, backTo: backTo(), onEnd: function () {
+      var cueRunning = RECAP.cue && st(RECAP.cue).s === 'on';
+      recap = window.HouseRecap.play($('recap'), cards, { auto: auto, idleMs: (RECAP.idle_minutes || 10) * 60000, onEnd: function (reason) {
         recap = null; lastPress = Date.now();
+        if (auto || cueRunning) recapDone(reason);
         if (auto) return close();
         $('week').focus();
       } });
     }
+  }
+  /* recap.done: the action that tells Home Assistant the recap is over and why ('done', 'back', 'idle', 'left'), so the
+     cue script can finish at once instead of waiting out a timer. */
+  function recapDone(reason) {
+    var d = RECAP && RECAP.done;
+    if (!d || !d.service || useDemo) return;
+    var data = {}, k;
+    for (k in d.data || {}) data[k] = d.data[k];
+    data.reason = reason;
+    call(d.service, data, d.target).then(null, function () {});
   }
   /* The cue script stays running while the recap plays, so its run (by last_triggered) is the cue, once per run. A
      non-admin user can't subscribe to custom events, so the script's own state is the signal. */
@@ -450,11 +462,18 @@
   document.addEventListener('keydown', function (e) {
     lastPress = Date.now();
     // 461 is the LG remote's Back key.
+    // In the recap: Play (415), Pause (19), Play/Pause (463, 179) and Down hold or resume the card; OK resumes a held card
+    // and otherwise steps on like Right. These are the app's own key handlers; nothing on the TV is remapped.
     if (recap) {
       e.preventDefault();
-      if (e.keyCode === 461 || e.keyCode === 27 || e.keyCode === 8) recap.back();
-      else if (e.keyCode === 37) recap.prev();
-      else if (e.keyCode === 39 || e.keyCode === 13) recap.next();
+      var k = e.keyCode;
+      if (k === 461 || k === 27 || k === 8) recap.back();
+      else if (k === 415) recap.resume();
+      else if (k === 19) recap.pause();
+      else if (k === 463 || k === 179 || k === 40 || k === 32) recap.toggle();
+      else if (k === 37) recap.prev();
+      else if (k === 13 && recap.paused()) recap.resume();
+      else if (k === 39 || k === 13) recap.next();
       return;
     }
     if (e.keyCode === 461 || e.keyCode === 27 || e.keyCode === 8) { e.preventDefault(); return close(); }
@@ -466,7 +485,13 @@
     }
   });
   $('recap').addEventListener('click', function () { lastPress = Date.now(); if (recap) recap.next(); });
-  ['mousemove', 'wheel'].forEach(function (n) { document.addEventListener(n, function () { lastPress = Date.now(); }); });
+  // The Magic Remote pointer jitters while the remote lies on the sofa, so only a real movement counts as a press.
+  var pointer = null;
+  document.addEventListener('mousemove', function (e) {
+    if (pointer && Math.abs(e.screenX - pointer[0]) + Math.abs(e.screenY - pointer[1]) > 24) lastPress = Date.now();
+    pointer = [e.screenX, e.screenY];
+  });
+  document.addEventListener('wheel', function () { lastPress = Date.now(); });
 
   /* ---------- closing ---------- */
   function close() {
@@ -483,7 +508,7 @@
   // goes instead of staying suspended in the TV's memory.
   document.addEventListener('visibilitychange', function () {
     if (useDemo) return;
-    if (document.hidden) { if (recap) { recap.stop(); recap = null; } closing = false; close(); return; }
+    if (document.hidden) { if (recap) { recap.end('left'); recap = null; } closing = false; close(); return; }
     lastPress = Date.now(); closing = false; document.body.style.visibility = '';
   });
 

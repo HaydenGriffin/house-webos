@@ -59,5 +59,24 @@ sparkle.
 
 Set `recap.cue` to a script. When that script starts, an open House plays the recap without a remote and closes when
 it ends. Start the script from an automation, for example on Sunday evening once the TV is on and House has been
-opened on it. The script needs to keep running for as long as the recap plays (a `delay` of a couple of minutes is
-enough), because its running state is the signal.
+opened on it. Its running state is the signal, because a non-admin user can't subscribe to custom events.
+
+The recap has no time limit. It ends when the last card finishes or the viewer leaves; Play, Pause and Down on the
+remote hold a card for as long as needed, and a held card with no press for `recap.idle_minutes` (default 10) ends it.
+Set `recap.done` to an action, and House calls it with `reason` (`done`, `back`, `idle` or `left`) as the recap ends,
+whether the cue started it or not. The cue script can wait for that instead of guessing how long the recap runs:
+
+```yaml
+house_tv_recap_done:
+  fields: { reason: {} }
+  sequence:
+    - event: house_tv_recap_done
+      event_data: { reason: "{{ reason }}" }
+tv_week_recap:
+  sequence:
+    # ... open House on the TV ...
+    - wait_for_trigger:
+        - trigger: event
+          event_type: house_tv_recap_done
+      timeout: "00:30:00"   # only if House went away without saying
+```

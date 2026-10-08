@@ -81,7 +81,7 @@ Developer Mode sessions run out unless they're extended; the Developer Mode app 
 | `tv` | `{ title?, source_sensor?, sources: [{ name, icon?, action }], wide? }`. The source whose `name` matches the sensor's state is lit; the sensor's `line` attribute, if any, shows beside the title. |
 | `music` | `{ title?, player, extra?, toggle? }`. `extra` is a pill button with an `action`; `toggle` is a switch row for an `input_boolean` with `on`/`off` labels. |
 | `people` | `[{ name, person, room? }]`. `room` is any sensor whose state is the room name. |
-| `recap` | `{ stats, attribute?, cue?, tv?, vacuum_map? }`. See [`docs/recap-stats.md`](docs/recap-stats.md). |
+| `recap` | `{ stats, attribute?, cue?, done?, idle_minutes?, tv?, vacuum_map? }`. `done` is an action called with `reason` when the recap ends. See [`docs/recap-stats.md`](docs/recap-stats.md). |
 
 Icons are [Material Design Icons](https://pictogrammers.com/library/mdi/) names in camelCase, from the set in
 [`app/icons.js`](app/icons.js); add any path you need there.
@@ -92,7 +92,7 @@ Open `app/index.html?demo` in Chrome. The layout is fixed at 1920×1080, the TV'
 demo scales to fit. `app/demo.js` holds the demo home and the full recap stats. The README images are rendered from the
 demo by [`tools/showcase`](tools/showcase). To try it against your own Home Assistant, write the config into the
 app folder with `python3 tools/push_config.py config.json --out app/config.js` (git ignores it, and the package leaves it
-out). Tests: `python3 -m unittest discover -s tests` and `node --test tests/`.
+out). Tests: `python3 -m unittest discover -s tests` and `node --test`.
 
 ## Licence
 

@@ -45,6 +45,7 @@
     "stats": "sensor.week_stats",
     "attribute": "stats",
     "cue": "script.tv_week_recap",
+    "done": { "service": "script.turn_on", "target": { "entity_id": "script.tv_week_recap_done" } },
     "tv": "media_player.living_room_tv",
     "vacuum_map": "camera.vacuum_map"
   }

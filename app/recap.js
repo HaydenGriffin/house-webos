@@ -147,7 +147,7 @@
     function side(m) { return num(m) && m > 0 ? hm(m) : '–'; }
     var race = s.bed_race, line = '';
     if (race && who(race.who) && num(race.nights) && num(race.of)) {
-      line = nameOf(race.who) + ' beat ' + other(race.who).name + ' to bed ' + race.nights + ' nights out of ' + race.of;
+      line = nameOf(race.who) + ' beat ' + other(race.who).name + ' to bed ' + race.nights + ' ' + plural(race.nights, 'night', 'nights') + ' out of ' + race.of;
     } else if (num(a[0]) && num(a[1]) && Math.abs(a[0] - a[1]) >= 5) {
       line = (a[0] > a[1] ? P[0] : P[1]).name + ' slept ' + Math.round(Math.abs(a[0] - a[1])) + ' minutes longer a night';
     }
@@ -168,7 +168,7 @@
     }).join('') + '</div>';
     var html = '<div class="r-versus">' + sideHtml(P[0], g[0].hit + '/' + g[0].of) + ticks + sideHtml(P[1], g[1].hit + '/' + g[1].of) + '</div>';
     var win = person(r.winner), wg = win === P[0] ? g[0] : g[1];
-    var line = win ? win.name + ' hit their goal ' + wg.hit + ' days out of ' + wg.of : 'Dead level this week';
+    var line = win ? win.name + ' hit their goal ' + wg.hit + ' ' + plural(wg.hit, 'day', 'days') + ' out of ' + wg.of : 'Dead level this week';
     return { icon: 'target', label: str(r.label) || 'Daily goals', html: html, line: line, cls: 'r-widecard', ms: 4500 };
   }
 
@@ -176,7 +176,7 @@
   function restless(r) {
     if (!r) return null;
     if (r.kind === 'worst' && who(r.who) && num(r.times) && str(r.day)) {
-      return { icon: 'weatherNight', label: 'Up in the night', value: r.times, unit: 'times',
+      return { icon: 'weatherNight', label: 'Up in the night', value: r.times, unit: plural(r.times, 'time', 'times'),
                line: nameOf(r.who) + ', ' + r.day + ' night', ms: 4000 };
     }
     if (r.kind === 'calm') return { icon: 'weatherNight', label: 'Up in the night', text: 'Not once', line: 'Nobody got up in the night all week', ms: 4000 };
@@ -283,7 +283,7 @@
   function plateLine(f) {
     var fresh = (f.new || []).filter(str), top = f.top;
     if (f.pick === 'new' && fresh.length) return fresh.length === 1 ? 'New this week: ' + fresh[0] : fresh.length + ' new recipes tried this week';
-    if (f.pick === 'top' && top && str(top.name) && num(top.days)) return 'Most cooked: ' + top.name + ', ' + top.days + ' times';
+    if (f.pick === 'top' && top && str(top.name) && num(top.days)) return 'Most cooked: ' + top.name + ', ' + top.days + ' ' + plural(top.days, 'time', 'times');
     if (f.pick === 'leaves' && num(f.leaves) && f.leaves > 0) {
       var whose = who(f.leaves_who) ? nameOf(f.leaves_who) + '’s' : 'The';
       return f.leaves >= 7 ? whose + ' sprig grew a leaf every day' : whose + ' sprig grew ' + f.leaves + ' ' + plural(f.leaves, 'leaf', 'leaves');
@@ -381,20 +381,20 @@
     if (!m || !m.label) return null;
     var tiles = [];
     function add(label, value) { tiles.push(tileHtml(label, value, tiles.length)); }
-    // either person is enough: one may have joined part-way through
+    // a pair tile needs both people: a dash for a missing side reads as broken, so the tile is left out instead
     function pair(obj, f) {
       if (!duo() || !obj) return null;
       var v = of2(obj);
-      return num(v[0]) || num(v[1]) ? v.map(function (x) { return num(x) ? f(x) : '–'; }) : null;
+      return num(v[0]) && num(v[1]) ? v.map(f) : null;
     }
     var steps = pair(m.steps, thousands), sleep = pair(m.sleep_avg, hm), duel = pair(m.duel, String);
     if (steps) add('Steps', tilePair(steps));
-    if (duel && duel[0] !== '–' && duel[1] !== '–') add('Steps duel', tileN(duel[0] + '–' + duel[1]));
+    if (duel) add('Steps duel', tileN(duel[0] + '–' + duel[1]));
     if (sleep) add('Average night', tilePair(sleep));
     if (num(m.energy_cost)) add('Energy', tileN(money(m.energy_cost, 0)));
     if (m.best_day && m.best_day.who && num(m.best_day.steps)) add('Best day', tileWho(thousands(m.best_day.steps), m.best_day.who));
     if (m.best_night && m.best_night.who && num(m.best_night.minutes)) add('Longest night', tileWho(hm(m.best_night.minutes), m.best_night.who));
-    if (num(m.tv_hours)) add('TV', tileN(thousands(m.tv_hours), 'hours'));
+    if (num(m.tv_hours)) add('TV', tileN(thousands(m.tv_hours), plural(Math.round(m.tv_hours), 'hour', 'hours')));
     if (num(m.vacuum_cleans) && m.vacuum_cleans) add(str(m.vacuum_name) || 'Vacuum', tileN(String(m.vacuum_cleans), plural(m.vacuum_cleans, 'clean', 'cleans')));
     if (tiles.length < 3) return null;
     return { icon: isYear ? 'partyPopper' : 'calendarMonth', label: m.label + ' in numbers', html: '<div class="r-tiles">' + tiles.slice(0, 6).join('') + '</div>',
@@ -450,8 +450,7 @@
       energyStats(s.energy, s.trends),
       quiz(s.quiz),
       watched(s.watched, data.tvHours),
-      dinners(s.dinners),
-      plates(s.food, data.foodPhotos),
+      plates(s.food, data.foodPhotos) || dinners(s.dinners),
       vacuumCard(s.vacuum, data.vacuumMap),
       record(s.records),
       houseSays(s.house_says),
@@ -507,34 +506,43 @@
     window.requestAnimationFrame(frame);
   }
 
-  /* root: the #recap element. opts: { auto, backTo, onEnd(reason) } where reason is 'done' or 'back'.
+  /* root: the #recap element. opts: { auto, idleMs, onEnd(reason) }. reason: 'done' (the last card finished), 'back' (the
+     viewer left), 'idle' (held on pause with no press for idleMs, default 10 minutes) or 'stopped' (the app was hidden).
+     Pause holds the card: both the advance and the reveal timers stop, and the bar freezes where it is. There is no other
+     time limit: the recap ends when it finishes or someone leaves, and the watchdog only catches a pause left behind.
      In auto mode only the progress bars and the countdown sit above the cards; stepping by hand shows the hint. */
   function play(root, cards, opts) {
     var stage = root.querySelector('.r-stage'), bars = root.querySelector('.r-bars'), hint = root.querySelector('.r-hint');
-    var i = -1, timer = 0, ticker = 0, revealTimer = 0, revealed = true, cardStart = 0, stopped = false;
+    var i = -1, timer = 0, ticker = 0, revealTimer = 0, revealed = true, stopped = false;
+    var paused = false, left = 0, revealLeft = 0, cardStart = 0, lastInput = Date.now();
+    var idleMs = opts.idleMs || 600000;
     function ms(c) { return c.ms || CARD_MS; }
 
     bars.innerHTML = cards.map(function () { return '<span class="r-bar"><span></span></span>'; }).join('');
     root.classList.toggle('r-auto', !!opts.auto);
+    root.classList.remove('r-paused');
     root.hidden = false;
 
+    /* The current bar fills over what is left of the card; paused, it holds its width. */
     function setBars() {
       Array.prototype.forEach.call(bars.children, function (b, n) {
-        var fill = b.firstChild;
+        var fill = b.firstChild, total = ms(cards[n]);
         fill.style.transition = 'none';
-        fill.style.width = n < i ? '100%' : '0%';
-        if (n === i) {
-          void fill.offsetWidth;  // restart the fill from empty
-          fill.style.transition = 'width ' + ms(cards[i]) + 'ms linear';
+        fill.style.width = n < i ? '100%' : n > i ? '0%' : ((1 - left / total) * 100).toFixed(2) + '%';
+        if (n === i && !paused) {
+          void fill.offsetWidth;  // restart the fill from where it stands
+          fill.style.transition = 'width ' + Math.max(0, left) + 'ms linear';
           fill.style.width = '100%';
         }
       });
     }
+    function remaining() { return paused ? left : left - (Date.now() - cardStart); }
     function setHint() {
-      if (!opts.auto) { hint.textContent = 'Left and right to step · Back closes'; return; }
-      var left = ms(cards[i]) - (Date.now() - cardStart);
-      for (var n = i + 1; n < cards.length; n++) left += ms(cards[n]);
-      hint.textContent = Math.max(1, Math.ceil(left / 1000)) + ' s';
+      if (paused) { hint.textContent = 'Paused · press Play or OK to carry on'; return; }
+      if (!opts.auto) { hint.textContent = 'Left and right to step · Play pauses · Back returns to House'; return; }
+      var total = remaining();
+      for (var n = i + 1; n < cards.length; n++) total += ms(cards[n]);
+      hint.textContent = Math.max(1, Math.ceil(total / 1000)) + ' s';
     }
     function reveal() {
       if (revealed) return;
@@ -543,12 +551,19 @@
       var card = stage.querySelector('.r-card:not(.r-out)');
       if (card) card.classList.add('r-revealed');
     }
+    function arm() {
+      clearTimeout(timer); clearTimeout(revealTimer);
+      cardStart = Date.now();
+      if (paused) return;
+      if (!revealed) revealTimer = setTimeout(reveal, Math.max(0, revealLeft));
+      timer = setTimeout(function () { show(i + 1); }, Math.max(0, left));
+    }
     function show(n) {
       if (stopped) return;
       if (n >= cards.length) return end('done');
       if (n < 0) n = 0;
       var forward = n >= i;
-      i = n; cardStart = Date.now();
+      i = n;
       var old = stage.querySelector('.r-card:not(.r-out)');
       if (old) {
         old.classList.add('r-out', forward ? 'r-fwd' : 'r-bwd');
@@ -562,12 +577,26 @@
       card.classList.add('r-in');
       var numEl = card.querySelector('.r-n');
       if (numEl) countUp(numEl, cards[n]);
-      setBars(); setHint();
-      clearTimeout(timer); clearTimeout(revealTimer);
+      left = ms(cards[n]);
       revealed = !cards[n].revealAt;
-      if (!revealed) revealTimer = setTimeout(reveal, cards[n].revealAt);
-      timer = setTimeout(function () { show(i + 1); }, ms(cards[n]));
+      revealLeft = cards[n].revealAt || 0;
+      arm(); setBars(); setHint();
     }
+    function setPaused(on) {
+      if (stopped || on === paused) return;
+      if (on) {
+        var gone = Date.now() - cardStart;
+        left -= gone; revealLeft -= gone;
+        paused = true;
+        clearTimeout(timer); clearTimeout(revealTimer);
+      } else {
+        paused = false;
+        arm();
+      }
+      root.classList.toggle('r-paused', paused);
+      setBars(); setHint();
+    }
+    function input() { lastInput = Date.now(); }
     function end(reason) {
       if (stopped) return;
       stop();
@@ -576,16 +605,25 @@
     function stop() {
       stopped = true;
       clearTimeout(timer); clearTimeout(revealTimer); clearInterval(ticker);
-      root.hidden = true; stage.innerHTML = '';
+      root.hidden = true; stage.innerHTML = ''; root.classList.remove('r-paused');
     }
 
-    ticker = setInterval(function () { if (!stopped) setHint(); }, 1000);
+    ticker = setInterval(function () {
+      if (stopped) return;
+      if (paused && Date.now() - lastInput >= idleMs) return end('idle');
+      setHint();
+    }, 1000);
     show(0);
     return {
-      next: function () { if (!revealed) reveal(); else show(i + 1); },
-      prev: function () { show(i - 1); },
+      next: function () { input(); if (!revealed) reveal(); else show(i + 1); },
+      prev: function () { input(); show(i - 1); },
       reveal: reveal,
-      back: function () { end('back'); },
+      pause: function () { input(); setPaused(true); },
+      resume: function () { input(); setPaused(false); },
+      toggle: function () { input(); setPaused(!paused); },
+      paused: function () { return paused; },
+      back: function () { input(); end('back'); },
+      end: function (reason) { end(reason || 'stopped'); },
       stop: stop,
     };
   }
