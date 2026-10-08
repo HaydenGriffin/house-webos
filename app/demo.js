@@ -39,6 +39,20 @@
       { name: 'Sam', person: 'person.sam', room: 'sensor.sam_room' },
     ],
     recap: { stats: 'sensor.week_stats' },
+    glance: [
+      { entity: 'sensor.dinner_tonight', icon: 'silverwareForkKnife', text: 'Tonight · {value}' },
+      { entity: 'todo.shopping', icon: 'cartOutline', text: 'Shopping · {value}', hide: ['0'] },
+    ],
+    quick: [
+      { name: 'Pause', sub: 'The streamer', icon: 'pause', toast: 'Paused', visible: { entity: 'media_player.streamer', states: ['playing'] },
+        action: { service: 'media_player.media_pause', target: { entity_id: 'media_player.streamer' } } },
+      { name: 'Lights up', sub: 'Living room to 40%', icon: 'lightbulbOn', toast: 'Lights up', visible: { entity: 'media_player.streamer', states: ['playing', 'paused'] },
+        action: { service: 'light.turn_on', target: { entity_id: 'light.living_room' }, data: { brightness_pct: 40 } } },
+    ],
+    footer: [
+      { name: 'Everything off', icon: 'power', confirm: true, toast: 'Everything off',
+        action: { service: 'script.turn_on', target: { entity_id: 'script.everything_off' } } },
+    ],
   };
 
   var states = {
@@ -55,6 +69,9 @@
     'sensor.alex_room': { s: 'living room' },
     'person.sam': { s: 'home' },
     'sensor.sam_room': { s: 'kitchen' },
+    'sensor.dinner_tonight': { s: 'Chicken katsu curry' },
+    'todo.shopping': { s: '8' },
+    'media_player.streamer': { s: 'playing' },
   };
 
   function day(offset) {

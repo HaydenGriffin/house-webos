@@ -14,9 +14,11 @@
   var LIGHTS = CONFIG.lights || [], TILES = CONFIG.tiles || [], PEOPLE = CONFIG.people || [];
   var TV = CONFIG.tv || null, MUSIC = CONFIG.music || null, RECAP = CONFIG.recap || null;
   var CALENDARS = CONFIG.calendars || [];
+  var GLANCE = CONFIG.glance || [], QUICK = CONFIG.quick || [], FOOTER = CONFIG.footer || [];
+  var ARM_MS = 5000;
 
   var states = {}, sock = null, nextId = 1, pending = {}, connected = false, everConnected = false, retry = 0;
-  var lastPress = Date.now(), closing = false, toastTimer = 0, nextEvent = null;
+  var lastPress = Date.now(), closing = false, toastTimer = 0, nextEvent = null, armed = null;
   var recap = null, recapStarting = false, cueSeen = null;
 
   function $(id) { return document.getElementById(id); }
@@ -39,8 +41,8 @@
       '<span class="name">' + esc(item.name) + '</span><span class="state">' + esc(item.sub || '–') + '</span></button>';
   }
   function pillHtml(cls, n, item) {
-    return '<button class="pill ' + cls + '" data-tile="' + n + '"><span class="ico warm" data-icon="' + esc(item.icon || 'play') + '"></span>' +
-      esc(item.name) + '</button>';
+    return '<button class="pill ' + cls + '" data-tile="' + n + '"><span class="ico' + (item.confirm ? '' : ' warm') + '" data-icon="' +
+      esc(item.icon || 'play') + '"></span><span class="label">' + esc(item.name) + '</span></button>';
   }
   function switchRowHtml(t) {
     return '<button class="row" id="toggle-row" role="switch" aria-checked="false"><span class="disc" data-icon="' + esc(t.icon || 'speakers') + '"></span>' +
@@ -52,7 +54,9 @@
   function addAction(item) { actions.push(item); return actions.length - 1; }
   function build() {
     document.title = $('title').textContent = CONFIG.title || 'House';
-    $('rooms').innerHTML = LIGHTS.map(function (l, n) { return tileHtml('light', n, l, 'lightbulb'); }).join('') +
+    // Quick actions (Pause, Lights up) lead the grid, so they're the first row and the first focus while they show.
+    $('rooms').innerHTML = QUICK.map(function (q) { return tileHtml('tile', addAction(q), q, 'gestureTap').replace('<button ', '<button data-quick '); }).join('') +
+      LIGHTS.map(function (l, n) { return tileHtml('light', n, l, 'lightbulb'); }).join('') +
       TILES.map(function (t) { return tileHtml('tile', addAction(t), t, 'gestureTap'); }).join('');
     if (TV) {
       $('tv').hidden = false;
@@ -75,6 +79,10 @@
       return '<p class="chip person" data-person="' + n + '"><span class="disc initial" aria-hidden="true">' + esc(String(p.name || '?').charAt(0)) +
         '</span><span><b>' + esc(p.name) + '</b> <span class="where">–</span></span></p>';
     }).join('');
+    $('chips').innerHTML = GLANCE.map(function (g, n) {
+      return '<p class="chip" data-glance="' + n + '" hidden><span class="disc" data-icon="' + esc(g.icon || 'information') + '"></span><span></span></p>';
+    }).join('');
+    $('footer-actions').innerHTML = FOOTER.map(function (f) { return pillHtml('', addAction(f), f); }).join('');
     $('week').hidden = !(RECAP && RECAP.stats);
     all('[data-icon]').forEach(function (el) { setIcon(el, el.getAttribute('data-icon')); });
     all('button').forEach(function (b) { b.addEventListener('click', function () { lastPress = Date.now(); press(b); }); });
@@ -88,6 +96,8 @@
     if (MUSIC && MUSIC.toggle && MUSIC.toggle.entity) list.push(MUSIC.toggle.entity);
     PEOPLE.forEach(function (p) { if (p.person) list.push(p.person); if (p.room) list.push(p.room); });
     if (RECAP) ['stats', 'cue', 'vacuum_map'].forEach(function (k) { if (RECAP[k]) list.push(RECAP[k]); });
+    GLANCE.forEach(function (g) { list.push(g.entity); });
+    QUICK.concat(FOOTER, TILES).forEach(function (t) { if (t.entity) list.push(t.entity); if (t.visible) list.push(t.visible.entity); });
     return list.filter(function (id, n) { return id && list.indexOf(id) === n; });
   }
 
@@ -263,9 +273,20 @@
     });
 
     $('date').textContent = new Date().toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });
-    var next = $('next');
-    next.hidden = !nextEvent;
-    if (nextEvent) next.textContent = 'Next ' + sentence(dayWord(nextEvent.start)) + (nextEvent.allDay ? '' : ' ' + hhmm(nextEvent.start)) + ' · ' + nextEvent.title;
+    var next = $('next'), ready = weekReady();
+    next.hidden = !nextEvent && !ready;
+    next.classList.toggle('ask', !!ready);
+    if (ready) next.textContent = 'Your week at home is ready · This week, below';
+    else if (nextEvent) next.textContent = 'Next ' + sentence(dayWord(nextEvent.start)) + (nextEvent.allDay ? '' : ' ' + hhmm(nextEvent.start)) + ' · ' + nextEvent.title;
+
+    GLANCE.forEach(function (g, n) {
+      var chip = document.querySelector('[data-glance="' + n + '"]'), text = glanceText(g);
+      chip.hidden = !text;
+      if (text) chip.lastChild.textContent = text;
+    });
+    all('#footer-actions [data-tile], .tile[data-tile]').forEach(function (b) {
+      b.hidden = !visibleNow(actions[+b.getAttribute('data-tile')]);
+    });
 
     if (TV) {
       var src = TV.source_sensor, source = src ? st(src).s : '';
@@ -291,6 +312,32 @@
         if (dead(t.entity)) row.disabled = true;
       }
     }
+  }
+  /* visible: { entity, states: [...] } shows an action only while the entity is in one of those states. */
+  function visibleNow(item) {
+    var v = item && item.visible;
+    return !v || !v.entity || (v.states || ['on']).indexOf(st(v.entity).s) >= 0;
+  }
+  /* A glance chip: { entity, attribute?, text: 'Tonight · {value}', icon?, hide?: [values], hours?: [from, to],
+     within_days?: n }. {value} is the state (or the attribute), {attr.x} any attribute, {day} the value read as a date
+     (today, tomorrow or the weekday). Empty, unavailable and hidden values show no chip. */
+  function glanceText(g) {
+    if (!g.entity || dead(g.entity)) return '';
+    var value = g.attribute ? attr(g.entity, g.attribute) : st(g.entity).s;
+    if (value === undefined || value === null || value === '' || (g.hide || []).indexOf(String(value)) >= 0) return '';
+    var h = new Date().getHours();
+    if (g.hours && !(h >= g.hours[0] && h < g.hours[1])) return '';
+    var day = '';
+    if (/^\d{4}-\d{2}-\d{2}/.test(String(value))) {
+      var d = new Date(String(value).slice(0, 10) + 'T00:00:00'), today = new Date(); today.setHours(0, 0, 0, 0);
+      var diff = Math.round((d - today) / 86400000);
+      if (g.within_days !== undefined && (diff < 0 || diff > g.within_days)) return '';
+      day = dayWord(d);
+    }
+    return String(g.text || '{value}').replace(/\{(value|day|attr\.([a-z0-9_]+))\}/g, function (m, k, a) {
+      var v = k === 'value' ? value : k === 'day' ? day : attr(g.entity, a);
+      return v === undefined || v === null ? '' : String(v);
+    }).replace(/\s+/g, ' ').trim();
   }
   function since(lc) {
     if (!lc) return '';
@@ -373,7 +420,7 @@
     if (recapStarting || !RECAP) return;
     if (recap) { recap.stop(); recap = null; }
     recapStarting = true;
-    var stats = adaptStats(attr(RECAP.stats, RECAP.attribute || 'stats')), hours = null, photos = [], waiting = 2;
+    var rawStats = attr(RECAP.stats, RECAP.attribute || 'stats'), stats = adaptStats(rawStats), hours = null, photos = [], waiting = 2;
     tvHours(function (h) { hours = h; ready(); });
     foodPhotos(stats && stats.food && stats.food.photos, function (p) { photos = p; ready(); });
     function ready() {
@@ -391,6 +438,7 @@
       recap = window.HouseRecap.play($('recap'), cards, { auto: auto, idleMs: (RECAP.idle_minutes || 10) * 60000, onEnd: function (reason) {
         recap = null; lastPress = Date.now();
         if (auto || cueRunning) recapDone(reason);
+        markSeen(rawStats);
         if (auto) return close();
         $('week').focus();
       } });
@@ -426,10 +474,19 @@
     if (b.id === 'close') return close();
     if (b.id === 'week') return openRecap(false);
     if (b.disabled || b.hasAttribute('aria-busy')) return;
+    if (armed && armed !== b) disarm();
     var job = null, done = '';
     if (b.hasAttribute('data-light')) job = call('homeassistant.toggle', {}, { entity_id: LIGHTS[+b.getAttribute('data-light')].entity });
-    else if (b.hasAttribute('data-tile')) { var item = actions[+b.getAttribute('data-tile')]; job = run(item); done = item.toast || ''; }
-    else if (b.id === 'toggle-row') job = call('homeassistant.toggle', {}, { entity_id: MUSIC.toggle.entity });
+    else if (b.hasAttribute('data-tile')) {
+      var item = actions[+b.getAttribute('data-tile')];
+      if (item.confirm && armed !== b) return arm(b, item);
+      disarm();
+      job = run(item); done = item.toast || '';
+    }
+    else if (b.id === 'toggle-row') {
+      var t = MUSIC.toggle, a = st(t.entity).s === 'on' ? t.action_off : t.action_on;
+      job = a && a.service ? call(a.service, a.data, a.target) : call('homeassistant.toggle', {}, { entity_id: t.entity });
+    }
     else if (b.getAttribute('data-act') === 'music_toggle') job = call('media_player.media_play_pause', {}, { entity_id: MUSIC.player });
     else if (b.getAttribute('data-act') === 'music_next') job = call('media_player.media_next_track', {}, { entity_id: MUSIC.player });
     if (!job) return;
@@ -438,9 +495,42 @@
       .then(function () { b.removeAttribute('aria-busy'); render(); });
   }
 
+  /* The one confirm pattern for risky actions: the first press arms the button ("Tap again to …", red) for 5 s. */
+  function arm(b, item) {
+    disarm();
+    armed = b;
+    b.classList.add('armed');
+    labelOf(b).textContent = typeof item.confirm === 'string' ? item.confirm : 'Press again';
+    armed.timer = setTimeout(disarm, ARM_MS);
+  }
+  function disarm() {
+    if (!armed) return;
+    var b = armed; armed = null;
+    clearTimeout(b.timer);
+    b.classList.remove('armed');
+    labelOf(b).textContent = actions[+b.getAttribute('data-tile')].name;
+  }
+  function labelOf(b) { return b.querySelector('.label') || b.querySelector('.name'); }
+
+  /* ---------- the week recap, asked for rather than sprung: fresh stats nobody has played yet ---------- */
+  function statsId(stats) { return stats && stats.generated_at ? String(stats.generated_at) : ''; }
+  function weekReady() {
+    if (!RECAP || !RECAP.stats || RECAP.ask === false || recap) return false;
+    var stats = attr(RECAP.stats, RECAP.attribute || 'stats'), id = statsId(stats);
+    if (!id || (Date.now() - new Date(id).getTime()) / 86400000 > 6) return false;
+    try { return window.localStorage.getItem('house.recap.seen') !== id; } catch (e) { return false; }
+  }
+  function markSeen(stats) {
+    try { if (statsId(stats)) window.localStorage.setItem('house.recap.seen', statsId(stats)); } catch (e) { /* private mode */ }
+  }
+
   /* ---------- remote: arrows move by geometry, OK presses, Back closes ---------- */
   function focusables() { return all('button').filter(function (b) { return !b.disabled && b.offsetParent !== null; }); }
-  function focusFirst() { var f = focusables()[0]; if (f) f.focus(); }
+  function focusFirst() {
+    var quick = focusables().filter(function (b) { return b.hasAttribute('data-quick'); })[0];
+    var f = quick || (weekReady() && !$('week').hidden ? $('week') : null) || focusables()[0];
+    if (f) f.focus();
+  }
   /* Nearest control in the pressed direction by edge distance; one that overlaps the current control across the
      direction of travel wins over a closer diagonal one, so Down from Pause lands on the row under it. */
   function move(key) {
@@ -516,10 +606,9 @@
     if (recap || recapStarting || useDemo) lastPress = Date.now();  // the recap times itself; the demo never closes
     var now = new Date(), left = IDLE_MS - (Date.now() - lastPress);
     $('clock').textContent = useDemo && DEMO.clock ? DEMO.clock : now.toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' });
-    var idle = $('idle'), soon = left <= WARN_MS;
-    idle.classList.toggle('closing', soon);
-    idle.textContent = soon ? 'Closing in ' + Math.max(0, Math.ceil(left / 1000)) + ' s · press any button to stay'
-      : 'Closes after a minute idle';
+    var idle = $('idle'), soon = left <= WARN_MS && !recap;
+    idle.hidden = !soon;
+    if (soon) idle.textContent = 'Closing in ' + Math.max(0, Math.ceil(left / 1000)) + ' s · press any button to stay';
     if (!closing && left <= 0) close();
     if (now.getSeconds() === 0 || (CONFIG.door && st(CONFIG.door).s === 'on')) render();
   }

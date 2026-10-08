@@ -15,6 +15,7 @@
       <p id="next" class="next" hidden></p>
     </div>
     <div class="glance">
+      <span id="chips"></span>
       <p id="door" class="chip open" hidden><span class="disc" data-icon="doorOpen"></span><span>Door open</span></p>
       <time id="clock"></time>
     </div>
@@ -53,9 +54,10 @@
   <footer class="bottom">
     <button class="pill" id="close"><span class="ico" data-icon="arrowLeft"></span>Back to TV</button>
     <button class="pill" id="week" hidden><span class="ico" data-icon="calendarWeek"></span>This week</button>
+    <span id="footer-actions"></span>
     <span id="people"></span>
-    <p id="idle" class="sub">Closes after a minute idle</p>
   </footer>
+  <p id="idle" class="sub" hidden></p>
 
   <p id="toast" role="status" aria-live="polite" hidden></p>
 </main>

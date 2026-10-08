@@ -75,13 +75,16 @@ Developer Mode sessions run out unless they're extended; the Developer Mode app 
 | `url`, `token` | `ws://<home assistant>:8123/api/websocket` and the TV user's token. |
 | `title`, `locale`, `idle_seconds` | The heading, the date and time format (e.g. `en-GB`), and the auto-close delay. |
 | `lights` | `[{ name, entity }]`. A press toggles the entity. |
-| `tiles` | `[{ name, sub?, icon?, toast?, entity?, action? }]`. `action` is `{ service: "domain.service", data?, target? }`; with only `entity`, a press toggles it. |
+| `tiles` | `[{ name, sub?, icon?, toast?, entity?, action?, confirm?, visible? }]`. `action` is `{ service: "domain.service", data?, target? }`; with only `entity`, a press toggles it. `confirm: true` (or the armed label) makes it a two-press action: the first press arms it red for 5 s. `visible: { entity, states }` shows it only while the entity is in one of those states. |
 | `door` | A `binary_sensor`; a chip appears while it's on, with how long for. |
+| `glance` | Header chips: `[{ entity, text?, icon?, attribute?, hide?, hours?, within_days? }]`. `text` takes `{value}`, `{attr.x}` and `{day}` (the value read as a date: today, tomorrow or the weekday), e.g. `"Tonight · {value}"`. A chip shows only while there's something to say. |
+| `quick` | Actions that lead the lights grid and take the first focus, e.g. Pause and Lights up while something plays. Same shape as `tiles`. |
+| `footer` | Pill buttons after This week, same shape as `tiles`, e.g. Everything off. |
 | `calendars` | Calendar entities for the "Next" line. |
 | `tv` | `{ title?, source_sensor?, sources: [{ name, icon?, action }], wide? }`. The source whose `name` matches the sensor's state is lit; the sensor's `line` attribute, if any, shows beside the title. |
-| `music` | `{ title?, player, extra?, toggle? }`. `extra` is a pill button with an `action`; `toggle` is a switch row for an `input_boolean` with `on`/`off` labels. |
+| `music` | `{ title?, player, extra?, toggle? }`. `extra` is a pill button with an `action`; `toggle` is a switch row for an `input_boolean` with `on`/`off` labels, and optional `action_on`/`action_off` to run instead of toggling it. |
 | `people` | `[{ name, person, room? }]`. `room` is any sensor whose state is the room name. |
-| `recap` | `{ stats, attribute?, cue?, done?, idle_minutes?, tv?, vacuum_map? }`. `done` is an action called with `reason` when the recap ends. See [`docs/recap-stats.md`](docs/recap-stats.md). |
+| `recap` | `{ stats, attribute?, cue?, done?, idle_minutes?, ask?, tv?, vacuum_map? }`. `done` is an action called with `reason` when the recap ends. Fresh stats nobody has played on this TV are offered on the home screen ("Your week at home is ready") unless `ask` is false. See [`docs/recap-stats.md`](docs/recap-stats.md). |
 
 Icons are [Material Design Icons](https://pictogrammers.com/library/mdi/) names in camelCase, from the set in
 [`app/icons.js`](app/icons.js); add any path you need there.

@@ -6,6 +6,18 @@
   "idle_seconds": 60,
   "calendars": ["calendar.family"],
   "door": "binary_sensor.front_door",
+  "glance": [
+    { "entity": "sensor.dinner_tonight", "icon": "silverwareForkKnife", "text": "Tonight · {value}", "hours": [10, 21] },
+    { "entity": "todo.shopping", "icon": "cartOutline", "text": "Shopping · {value}", "hide": ["0"] }
+  ],
+  "quick": [
+    { "name": "Pause", "sub": "The streamer", "icon": "pause", "visible": { "entity": "media_player.streamer", "states": ["playing"] },
+      "action": { "service": "media_player.media_pause", "target": { "entity_id": "media_player.streamer" } } }
+  ],
+  "footer": [
+    { "name": "Everything off", "icon": "power", "confirm": true, "toast": "Everything off",
+      "action": { "service": "script.turn_on", "target": { "entity_id": "script.everything_off" } } }
+  ],
   "lights": [
     { "name": "Living room", "entity": "light.living_room" },
     { "name": "Kitchen", "entity": "light.kitchen" },
