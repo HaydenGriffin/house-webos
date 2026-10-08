@@ -3,3 +3,4 @@ app/config.js
 dist/
 node_modules/
 .DS_Store
+__pycache__/

@@ -36,20 +36,31 @@ arrow keys and Enter; add `&recap` to the URL for the week recap.
 
 ## Install
 
-1. Copy `config.example.json` to `config.json` and fill in the websocket URL, the token and your entities. Everything
-   except `url` and `token` is optional; leave out a section and its panel disappears.
-2. Build the package. The config, token included, goes into the IPK, so keep the IPK to yourself.
+The package never contains your config or token, so the same IPK works for every home and is safe to share. The
+config goes onto the TV separately, next to the installed app.
+
+1. Build the package and install it on the TV:
 
    ```bash
-   python3 tools/package.py config.json
-   ```
-
-3. Install it on the TV:
-
-   ```bash
+   python3 tools/package.py
    ares-setup-device            # once, to add the TV
-   ares-install -d <tv> dist/io.github.haydengriffin.house_1.0.0_all.ipk
+   ares-install -d <tv> dist/io.github.haydengriffin.house_1.1.0_all.ipk
    ```
+
+2. Copy `config.example.json` to `config.json` and fill in the websocket URL, the token and your entities. Everything
+   except `url` and `token` is optional; leave out a section and its panel disappears. `--token-file` keeps the token
+   in its own file instead.
+
+3. Put the config on the TV over SSH, then open House:
+
+   ```bash
+   python3 tools/push_config.py config.json --ssh root@<tv>                                  # rooted TV
+   python3 tools/push_config.py config.json --ssh "-p 9922 -i ~/.ssh/tv_webos prisoner@<tv>"   # Developer Mode
+   ```
+
+   It writes `config.js` into the app's folder through SSH's stdin, so the token never appears in a command line.
+   Reinstalling the IPK removes it, so push the config again after every install. The rooted route is the tested
+   one; whether Developer Mode's SSH user may write into the app folder depends on the firmware.
 
 To open House quickly, pin it to the TV's home row or put it on a Quick Access number. Home Assistant can also open it
 with the LG webOS integration's `media_player.select_source`, or `webostv.command` with
@@ -79,7 +90,9 @@ Icons are [Material Design Icons](https://pictogrammers.com/library/mdi/) names 
 
 Open `app/index.html?demo` in Chrome. The layout is fixed at 1920×1080, the TV's resolution; in a smaller window the
 demo scales to fit. `app/demo.js` holds the demo home and the full recap stats. The README images are rendered from the
-demo by [`tools/showcase`](tools/showcase).
+demo by [`tools/showcase`](tools/showcase). To try it against your own Home Assistant, write the config into the
+app folder with `python3 tools/push_config.py config.json --out app/config.js` (git ignores it, and the package leaves it
+out). Tests: `python3 -m unittest discover -s tests` and `node --test tests/`.
 
 ## Licence
 
