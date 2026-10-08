@@ -19,6 +19,12 @@ the README.
 | `currency` | ISO 4217 code | For money figures. Defaults to `GBP`. |
 | `people` | `[{ "id": "alex", "name": "Alex" }, …]` | Up to two. The duels need exactly two. Per-person figures below are keyed by `id`; a winner or `who` may be given as an id or a name. |
 
+## Another producer's shape
+
+If the stats already exist in a different shape, reshape them on the TV instead of in the producer: a script passed to
+`push_config.py --adapter` that sets `window.HOUSE_STATS_ADAPTER = function (stats) { …; return stats; }`. It gets a
+copy of the attribute and returns the object described here. If it throws, the stats are used as they came.
+
 ## Cards, in the order they play
 
 | Key | Card | Shape |

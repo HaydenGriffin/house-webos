@@ -361,12 +361,19 @@
       });
     });
   }
+  /* A producer whose stats don't follow docs/recap-stats.md can be reshaped by window.HOUSE_STATS_ADAPTER, a function
+     defined in config.js (push_config.py --adapter). A failing adapter leaves the stats as they came. */
+  function adaptStats(stats) {
+    var fn = window.HOUSE_STATS_ADAPTER;
+    if (!stats || typeof fn !== 'function') return stats;
+    try { return fn(JSON.parse(JSON.stringify(stats))) || stats; } catch (e) { return stats; }
+  }
   /* auto: started by the cue script with nobody at the remote; House closes when it ends. */
   function openRecap(auto) {
     if (recapStarting || !RECAP) return;
     if (recap) { recap.stop(); recap = null; }
     recapStarting = true;
-    var stats = attr(RECAP.stats, RECAP.attribute || 'stats'), hours = null, photos = [], waiting = 2;
+    var stats = adaptStats(attr(RECAP.stats, RECAP.attribute || 'stats')), hours = null, photos = [], waiting = 2;
     tvHours(function (h) { hours = h; ready(); });
     foodPhotos(stats && stats.food && stats.food.photos, function (p) { photos = p; ready(); });
     function ready() {
