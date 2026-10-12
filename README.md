@@ -96,7 +96,7 @@ Open `app/index.html?demo` in Chrome. The layout is fixed at 1920×1080, the TV'
 demo scales to fit. `app/demo.js` holds the demo home and the full recap stats. The README images are rendered from the
 demo by [`tools/showcase`](tools/showcase). To try it against your own Home Assistant, write the config into the
 app folder with `python3 tools/push_config.py config.json --out app/config.js` (git ignores it, and the package leaves it
-out). Tests: `python3 -m unittest discover -s tests` and `node --test`.
+out). Tests: `python3 -m unittest discover -s tests` and `node --test`; lint: `npx --yes eslint@9 app`.
 
 ## Licence
 

@@ -1,5 +1,5 @@
 // Renders the README images from demo-mode screenshots. Usage: node render.js <shots dir> <out dir>
-// Take the shots first with shots.js (same folder).
+// Take the shots first with shots-panel.js and shots-recap.js (same folder).
 const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
