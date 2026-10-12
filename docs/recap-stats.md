@@ -5,7 +5,8 @@ the config; the attribute defaults to `stats`). Anything can produce it: a templ
 `python_script`, AppDaemon, Node-RED, or a script outside Home Assistant that posts to the REST API.
 
 Every section is optional. A card whose data is missing or incomplete is left out, and the recap only plays when at
-least two cards are ready. Stats older than eight days (by `generated_at`) are ignored.
+least two cards are ready. The recap plays stats up to eight days old (by `generated_at`); the home screen offers them
+for six days.
 
 [`app/demo.js`](../app/demo.js) has a complete example: the `recap()` function returns the object behind every card in
 the README.
@@ -30,22 +31,23 @@ copy of the attribute and returns the object described here. If it throws, the s
 | Key | Card | Shape |
 | --- | --- | --- |
 | `badge` | The intro reveals "This week you were…" | `{ title, why?, icon? }` |
+| `year_recap` | Straight after the intro: a "<label> Wrapped" title, then up to six tiles | Same shape as `month_recap`; needs 3+ tiles |
 | `duel` | Steps, two people over the week's paired bars | `{ wins: {id: n}, totals: {id: n}, days: [{ day, <id>: steps, winner? }] }` |
 | `belt` | A line under the steps duel | `{ holder, status: "first" \| "new" \| "defends", previous?, weeks? }` |
 | `goals` | Days each person met their own goal | `{ label?, <id>: { hit, of }, days: [{ day, <id>: true \| false \| null }], winner? }` (needs `of` ≥ 4) |
 | `sleep` | Average night each | `{ avg: {id: minutes}, nights: [{ day, <id>: minutes }], bed_race?: { who, nights, of } }` |
 | `restless` | Up in the night | `{ kind: "worst", who, times, day }` or `{ kind: "calm" }` |
-| `showers` | The shower duel | `{ <id>: { count, avg_min, avg_temp?, litres?, kwh? }, quickest?: { who, minutes, day } }`. `litres` and `kwh` are the week's totals; with both people's litres, a gap of 10 L and 15% becomes the card's line. |
+| `showers` | The shower duel | `{ <id>: { count, avg_min, avg_temp?, litres?, kwh? }, quickest?: { who, minutes, day } }`. `litres` (whole) and `kwh` (1 dp) are complete week totals, each optional on its own; leave one out if any shower lacks a value. With both people's litres, a gap of at least 10 L and 15% of the larger becomes the line: with equal counts it adds the extra kWh to heat when that is 0.5 or more, with unequal counts it names them instead ("Sam’s 7 showers used 280 more litres than Alex’s 1 this week"). |
 | `energy` | The week's energy cost | `{ week_cost, vs_last_week_pct?, last_year_cost?, line? }` |
 | `trends` | The sparkline beside energy | `{ energy_cost: [eight weekly values, oldest first, null for gaps] }` |
-| `quiz` | Three tiles, one lights up | `{ question, options: [3], answer_index, reveal?, icon? }` |
+| `quiz` | Up to three tiles, one lights up | `{ question, options: [2+], answer_index, reveal?, icon? }`. The first three options show; `answer_index` must be one of them. |
 | `watched` | TV hours | `{ hours?, top?: [{ title }], binge?: { day, hours } }`. Without `hours`, the TV entity's history is used. |
 | `dinners` | The week's dinners | `{ days: [{ day, meal }] }` |
-| `food` | The week on a plate | `{ photos: [paths or URLs], pick: "new" \| "top" \| "leaves", new?: [names], top?: { name, days }, leaves?, leaves_who? }` (needs 3+ photos) |
+| `food` | The week on a plate, in place of `dinners` | `{ photos: [paths or URLs], pick: "new" \| "top" \| "leaves", new?: [names], top?: { name, days }, leaves?, leaves_who? }`. Replaces the `dinners` card when 3+ of its photos load. |
 | `vacuum` | The robot vacuum's week | `{ name?, cleans, m2?, line?, map_entity? }`. The map is a camera's picture (`recap.vacuum_map` or `map_entity`). |
 | `records` | A new record, with sparkles | `[{ text: "Headline: detail", icon? }]`; the first one is shown. |
 | `house_says` | One sentence in the house's voice | `{ text }` |
-| `month_recap`, `year_recap` | Up to six tiles | `{ label, steps?: {id: n}, duel?: {id: n}, sleep_avg?: {id: minutes}, energy_cost?, best_day?: { who, steps }, best_night?: { who, minutes }, tv_hours?, vacuum_cleans?, vacuum_name? }` |
+| `month_recap` | Up to six tiles | Needs 3+ tiles: `{ label, steps?: {id: n}, duel?: {id: n}, sleep_avg?: {id: minutes}, energy_cost?, best_day?: { who, steps }, best_night?: { who, minutes }, tv_hours?, vacuum_cleans?, vacuum_name? }` |
 | `next_week` | Forecast and a challenge | `{ forecast: [{ day, condition, high, low? }], challenge? }`. `condition` uses Home Assistant's weather conditions. |
 | `highlights` | Free-form one-number cards | `[{ label, value? \| text?, unit?, line?, icon? }]`, up to four |
 | `guess` | Who called it | `{ question, answer: <id> \| "draw", guesses: {id: <id>}, right: [ids] }` |
@@ -64,7 +66,8 @@ opened on it. Its running state is the signal, because a non-admin user can't su
 The recap has no time limit. It ends when the last card finishes or the viewer leaves; Play, Pause and Down on the
 remote hold a card for as long as needed, and a held card with no press for `recap.idle_minutes` (default 10) ends it.
 Set `recap.done` to an action, and House calls it with `reason` (`done`, `back`, `idle` or `left`) as the recap ends,
-whether the cue started it or not. The cue script can wait for that instead of guessing how long the recap runs:
+if the cue started it or the cue script was running when it began; a recap started from the remote alone calls nothing.
+The cue script can wait for that instead of guessing how long the recap runs:
 
 ```yaml
 house_tv_recap_done:
