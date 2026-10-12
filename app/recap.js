@@ -8,7 +8,6 @@
 
   var CARD_MS = 5000, COUNT_MS = 1100, STATS_MAX_AGE_DAYS = 8;
   var ICONS = window.HOUSE_ICONS || {};
-  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
   var LOCALE, CURRENCY = 'GBP', P = [];
 
@@ -19,9 +18,6 @@
     catch (e) { return CURRENCY + ' ' + v.toFixed(d); }
   }
   function plural(n, one, many) { return n === 1 ? one : many; }
-  function andList(list) {
-    return list.length < 2 ? (list[0] || '') : list.slice(0, -1).join(', ') + ' and ' + list[list.length - 1];
-  }
   function half(v) {
     var h = Math.round(v * 2) / 2, whole = Math.floor(h);
     return h % 1 ? (whole ? whole + '½' : '½') : String(h);
@@ -31,10 +27,6 @@
   }
   function esc(s) {
     return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
-  }
-  function daysAgo(dateStr, now) {
-    var d = new Date(String(dateStr).slice(0, 10) + 'T12:00:00');
-    return isNaN(d) ? Infinity : (now - d) / 86400000;
   }
   function thousands(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function str(v) { return typeof v === 'string' && v ? v : ''; }
@@ -98,14 +90,14 @@
     var nums = [];
     rows.forEach(function (r) { of2(r).forEach(function (v) { if (num(v)) nums.push(v); }); });
     var top = Math.max.apply(null, nums.concat([1]));
-    function bar(v, p, winner) {
-      var lost = winner && winner !== p ? ' r-lost' : '';
+    function bar(v, p, best) {
+      var lost = best && best !== p ? ' r-lost' : '';
       return num(v) ? '<span class="r-pbar ' + p.cls + lost + '" style="height:' + Math.max(8, Math.round(v / top * 230)) + 'px"></span>'
         : '<span class="r-pbar r-none"></span>';
     }
     return '<div class="r-pairs">' + rows.map(function (r) {
-      var winner = person(r.winner), v = of2(r);
-      return '<div class="r-pair"><div class="r-pair-bars">' + bar(v[0], P[0], winner) + bar(v[1], P[1], winner) + '</div>' +
+      var best = person(r.winner), v = of2(r);
+      return '<div class="r-pair"><div class="r-pair-bars">' + bar(v[0], P[0], best) + bar(v[1], P[1], best) + '</div>' +
         '<p class="r-pair-day">' + esc(r.day || '') + '</p></div>';
     }).join('') + '</div>';
   }

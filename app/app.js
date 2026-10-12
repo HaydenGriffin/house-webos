@@ -146,7 +146,7 @@
         if (plus.lc) cur.lc = plus.lc; else if (plus.s !== undefined && plus.lu) cur.lc = plus.lu;
         if (plus.a) for (var k in plus.a) cur.a[k] = plus.a[k];
       }
-      if (minus && minus.a) minus.a.forEach(function (k) { delete cur.a[k]; });
+      if (minus && minus.a) minus.a.forEach(function (key) { delete cur.a[key]; });
       states[id] = cur;
     }
     if (ev.r) ev.r.forEach(function (rid) { delete states[rid]; });
