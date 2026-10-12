@@ -59,11 +59,41 @@ test('restless says 1 time, not 1 times', () => {
 
 const showerLine = (showers) => load().build({ stats: stats({ showers }) }).find((c) => c.label === 'The shower duel').line;
 
-test('the shower duel says who used more water, with the energy, when the gap is worth saying', () => {
-  assert.strictEqual(showerLine({ alex: { count: 5, avg_min: 8, avg_temp: 41, litres: 210, kwh: 6.1 }, sam: { count: 6, avg_min: 12, avg_temp: 44, litres: 340, kwh: 9.8 } }),
-    'Sam’s showers used 130 more litres, 3.7 kWh more to heat');
-  assert.strictEqual(showerLine({ alex: { count: 5, avg_min: 8, litres: 300 }, sam: { count: 6, avg_min: 12, litres: 210 } }),
-    'Alex’s showers used 90 more litres');
+test('the shower duel says who used more water this week, with the energy, when the gap is worth saying', () => {
+  assert.strictEqual(showerLine({ alex: { count: 6, avg_min: 8, avg_temp: 41, litres: 210, kwh: 6.1 }, sam: { count: 6, avg_min: 12, avg_temp: 44, litres: 340, kwh: 9.8 } }),
+    'Sam’s showers used 130 more litres this week, 3.7 kWh more to heat');
+  assert.strictEqual(showerLine({ alex: { count: 5, avg_min: 8, litres: 300 }, sam: { count: 5, avg_min: 12, litres: 210 } }),
+    'Alex’s showers used 90 more litres this week');
+});
+
+const litres = (a, b, extra) => showerLine({ alex: Object.assign({ count: 4, avg_min: 8, litres: a }, extra && extra.alex),
+  sam: Object.assign({ count: 4, avg_min: 9, litres: b }, extra && extra.sam) });
+
+test('the water gap needs 10 litres and 15% of the larger, both inclusive', () => {
+  assert.strictEqual(litres(60, 50), 'Alex’s showers used 10 more litres this week');
+  assert.strictEqual(litres(59, 50), '');
+  assert.strictEqual(litres(100, 85), 'Alex’s showers used 15 more litres this week');
+  assert.strictEqual(litres(100, 86), '');
+});
+
+test('the energy clause rounds to tenths before the 0.5 kWh threshold', () => {
+  assert.strictEqual(litres(300, 200, { alex: { kwh: 2.3 }, sam: { kwh: 1.8 } }), 'Alex’s showers used 100 more litres this week, 0.5 kWh more to heat');
+  assert.strictEqual(litres(300, 200, { alex: { kwh: 2.2 }, sam: { kwh: 1.8 } }), 'Alex’s showers used 100 more litres this week');
+});
+
+test('unequal shower counts are named, and the energy left out', () => {
+  assert.strictEqual(litres(50, 330, { alex: { count: 1, kwh: 1 }, sam: { count: 7, kwh: 9 } }), 'Sam’s 7 showers used 280 more litres than Alex’s 1 this week');
+  assert.strictEqual(litres(120, 90, { alex: { count: 1 }, sam: { count: 3 } }), 'Alex’s 1 shower used 30 more litres than Sam’s 3 this week');
+});
+
+test('the quiz answer must be one of the three tiles shown', () => {
+  const R = load();
+  const quiz = (options, answer_index) => R.build({ stats: stats({ quiz: { question: 'Who?', options, answer_index } }) }).find((c) => c.label === 'Quick question');
+  assert.strictEqual(quiz(['a', 'b', 'c', 'd'], 3), undefined);
+  assert.strictEqual(quiz(['a', 'b'], 2), undefined);
+  const card = quiz(['a', 'b', 'c', 'd'], 2);
+  assert.match(card.body, /r-correct">c</);
+  assert.ok(!card.body.includes('>d<'), 'only three tiles');
 });
 
 test('a small water gap, or one side without litres, falls back to the hotter showers', () => {

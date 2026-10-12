@@ -175,13 +175,19 @@
     return null;
   }
 
-  /* Who used more shower water over the week, when the gap is worth saying (10 L and 15%), with the extra energy. */
+  /* Who used more shower water over the week, when the gap is worth saying (10 L and 15% of the larger). The litres are
+     week totals under per-shower averages, so unequal counts are named instead of the extra energy to heat it. */
   function waterLine(h, e) {
     if (!num(h.litres) || !num(e.litres)) return '';
     var more = h.litres >= e.litres ? 0 : 1, a = more ? e : h, b = more ? h : e, gap = Math.round(a.litres - b.litres);
     if (gap < 10 || gap / a.litres < 0.15) return '';
-    var line = P[more].name + '’s showers used ' + gap + ' more litres';
-    if (num(a.kwh) && num(b.kwh) && a.kwh - b.kwh >= 0.5) line += ', ' + Math.round((a.kwh - b.kwh) * 10) / 10 + ' kWh more to heat';
+    if (a.count !== b.count) {
+      return P[more].name + '’s ' + a.count + ' ' + plural(a.count, 'shower', 'showers') + ' used ' + gap + ' more litres than ' +
+        P[1 - more].name + '’s ' + b.count + ' this week';
+    }
+    var line = P[more].name + '’s showers used ' + gap + ' more litres this week';
+    var kwh = num(a.kwh) && num(b.kwh) ? Math.round((a.kwh - b.kwh) * 10) / 10 : 0;
+    if (kwh >= 0.5) line += ', ' + kwh + ' kWh more to heat';
     return line;
   }
 
@@ -233,10 +239,11 @@
              cls: aside ? 'r-widecard r-energycard' : '', ms: 4500 };
   }
 
-  /* The quiz: three tiles, the right one lights up after a pause, then the answer's line. */
+  /* The quiz: up to three tiles, the right one lights up after a pause, then the answer's line. The answer must be one
+     of the tiles shown. */
   function quiz(q) {
     var opts = q && q.options;
-    if (!q || !str(q.question) || !opts || opts.length < 2 || !num(q.answer_index) || !opts[q.answer_index]) return null;
+    if (!q || !str(q.question) || !opts || opts.length < 2 || !num(q.answer_index) || q.answer_index > 2 || !opts[q.answer_index]) return null;
     var tiles = '<div class="r-options">' + opts.slice(0, 3).map(function (o, n) {
       return '<div class="r-step"' + delay(0.5 + n * 0.18) + '><p class="r-option' + (n === q.answer_index ? ' r-correct' : '') + '">' + esc(o) + '</p></div>';
     }).join('') + '</div>';
@@ -509,7 +516,8 @@
   }
 
   /* root: the #recap element. opts: { auto, idleMs, onEnd(reason) }. reason: 'done' (the last card finished), 'back' (the
-     viewer left), 'idle' (held on pause with no press for idleMs, default 10 minutes) or 'stopped' (the app was hidden).
+     viewer left), 'idle' (held on pause with no press for idleMs, default 10 minutes) or whatever end() was given: the
+     app sends 'left' when it is hidden, and no reason means 'stopped'.
      Pause holds the card: both the advance and the reveal timers stop, and the bar freezes where it is. There is no other
      time limit: the recap ends when it finishes or someone leaves, and the watchdog only catches a pause left behind.
      In auto mode only the progress bars and the countdown sit above the cards; stepping by hand shows the hint. */
