@@ -57,6 +57,21 @@ test('restless says 1 time, not 1 times', () => {
   assert.strictEqual(card.unit, 'time');
 });
 
+const showerLine = (showers) => load().build({ stats: stats({ showers }) }).find((c) => c.label === 'The shower duel').line;
+
+test('the shower duel says who used more water, with the energy, when the gap is worth saying', () => {
+  assert.strictEqual(showerLine({ alex: { count: 5, avg_min: 8, avg_temp: 41, litres: 210, kwh: 6.1 }, sam: { count: 6, avg_min: 12, avg_temp: 44, litres: 340, kwh: 9.8 } }),
+    'Sam’s showers used 130 more litres, 3.7 kWh more to heat');
+  assert.strictEqual(showerLine({ alex: { count: 5, avg_min: 8, litres: 300 }, sam: { count: 6, avg_min: 12, litres: 210 } }),
+    'Alex’s showers used 90 more litres');
+});
+
+test('a small water gap, or one side without litres, falls back to the hotter showers', () => {
+  const hot = { alex: { count: 5, avg_min: 8, avg_temp: 41 }, sam: { count: 6, avg_min: 12, avg_temp: 44 } };
+  assert.strictEqual(showerLine({ alex: Object.assign({ litres: 300 }, hot.alex), sam: Object.assign({ litres: 290 }, hot.sam) }), 'Sam’s showers run 3° hotter');
+  assert.strictEqual(showerLine({ alex: Object.assign({ litres: 300 }, hot.alex), sam: hot.sam }), 'Sam’s showers run 3° hotter');
+});
+
 test('a month tile pair needs both people', () => {
   const R = load();
   const month = { label: 'September', steps: { alex: 250000 }, sleep_avg: { alex: 420, sam: 450 }, duel: { alex: 12 }, energy_cost: 90, tv_hours: 1 };

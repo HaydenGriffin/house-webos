@@ -44,7 +44,7 @@ config goes onto the TV separately, next to the installed app.
    ```bash
    python3 tools/package.py
    ares-setup-device            # once, to add the TV
-   ares-install -d <tv> dist/io.github.haydengriffin.house_1.1.0_all.ipk
+   ares-install -d <tv> dist/io.github.haydengriffin.house_1.2.0_all.ipk
    ```
 
 2. Copy `config.example.json` to `config.json` and fill in the websocket URL, the token and your entities. Everything

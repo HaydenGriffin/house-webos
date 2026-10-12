@@ -35,7 +35,7 @@ copy of the attribute and returns the object described here. If it throws, the s
 | `goals` | Days each person met their own goal | `{ label?, <id>: { hit, of }, days: [{ day, <id>: true \| false \| null }], winner? }` (needs `of` ≥ 4) |
 | `sleep` | Average night each | `{ avg: {id: minutes}, nights: [{ day, <id>: minutes }], bed_race?: { who, nights, of } }` |
 | `restless` | Up in the night | `{ kind: "worst", who, times, day }` or `{ kind: "calm" }` |
-| `showers` | The shower duel | `{ <id>: { count, avg_min, avg_temp? }, quickest?: { who, minutes, day } }` |
+| `showers` | The shower duel | `{ <id>: { count, avg_min, avg_temp?, litres?, kwh? }, quickest?: { who, minutes, day } }`. `litres` and `kwh` are the week's totals; with both people's litres, a gap of 10 L and 15% becomes the card's line. |
 | `energy` | The week's energy cost | `{ week_cost, vs_last_week_pct?, last_year_cost?, line? }` |
 | `trends` | The sparkline beside energy | `{ energy_cost: [eight weekly values, oldest first, null for gaps] }` |
 | `quiz` | Three tiles, one lights up | `{ question, options: [3], answer_index, reveal?, icon? }` |

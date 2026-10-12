@@ -183,15 +183,25 @@
     return null;
   }
 
-  /* The shower duel: each average shower, and one line: the hotter one, else the quickest single shower. */
+  /* Who used more shower water over the week, when the gap is worth saying (10 L and 15%), with the extra energy. */
+  function waterLine(h, e) {
+    if (!num(h.litres) || !num(e.litres)) return '';
+    var more = h.litres >= e.litres ? 0 : 1, a = more ? e : h, b = more ? h : e, gap = Math.round(a.litres - b.litres);
+    if (gap < 10 || gap / a.litres < 0.15) return '';
+    var line = P[more].name + '’s showers used ' + gap + ' more litres';
+    if (num(a.kwh) && num(b.kwh) && a.kwh - b.kwh >= 0.5) line += ', ' + Math.round((a.kwh - b.kwh) * 10) / 10 + ' kWh more to heat';
+    return line;
+  }
+
+  /* The shower duel: each average shower, and one line: who used more water, else the hotter one, else the quickest. */
   function showerDuel(sh) {
     if (!duo() || !sh) return null;
     var v = of2(sh), h = v[0], e = v[1];
     if (!h || !e || !num(h.avg_min) || !num(e.avg_min) || !h.count || !e.count) return null;
-    var line = '', q = sh.quickest;
-    if (num(h.avg_temp) && num(e.avg_temp) && Math.abs(h.avg_temp - e.avg_temp) >= 0.5) {
+    var line = waterLine(h, e), q = sh.quickest;
+    if (!line && num(h.avg_temp) && num(e.avg_temp) && Math.abs(h.avg_temp - e.avg_temp) >= 0.5) {
       line = (h.avg_temp > e.avg_temp ? P[0] : P[1]).name + '’s showers run ' + half(Math.abs(h.avg_temp - e.avg_temp)) + '° hotter';
-    } else if (q && who(q.who) && num(q.minutes) && str(q.day)) {
+    } else if (!line && q && who(q.who) && num(q.minutes) && str(q.day)) {
       line = 'Quickest: ' + nameOf(q.who) + ', ' + q.minutes + ' ' + plural(q.minutes, 'minute', 'minutes') + ' on ' + q.day;
     }
     var html = '<div class="r-versus">' + sideHtml(P[0], h.avg_min + ' min') + '<p class="r-vs">vs</p>' + sideHtml(P[1], e.avg_min + ' min') + '</div>';

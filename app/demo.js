@@ -113,7 +113,7 @@
         nights: rows([492, 530, 601, 455, 512, 548, 467], [470, 455, 498, 470, 501, 489, 520]),
         bed_race: { who: 'sam', nights: 5, of: 7 },
       },
-      showers: { alex: { count: 6, avg_min: 9, avg_temp: 41.2 }, sam: { count: 7, avg_min: 14, avg_temp: 43.0 } },
+      showers: { alex: { count: 6, avg_min: 9, avg_temp: 41.2, litres: 280, kwh: 8.4 }, sam: { count: 7, avg_min: 14, avg_temp: 43.0, litres: 470, kwh: 14.6 } },
       energy: { week_cost: 29.6, vs_last_week_pct: 12 },
       trends: { energy_cost: [24.1, 25.8, 22.9, 26.4, 23.7, 27.2, 26.4, 29.6] },
       quiz: { question: 'How many thousand steps did you walk between you?', options: ['64', '102', '148'], answer_index: 1,
