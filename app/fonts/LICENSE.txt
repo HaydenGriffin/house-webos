@@ -1,4 +1,5 @@
 Both fonts are licensed under the SIL Open Font License 1.1 (https://openfontlicense.org) and come from Google Fonts.
+The full licence text is in OFL.txt.
 
 ahn-latin.woff2, ahn-latin-ext.woff2: Atkinson Hyperlegible Next, Copyright 2024 Braille Institute of America, Inc.
 lexend-latin.woff2: Lexend, Copyright 2018 The Lexend Project Authors (https://github.com/googlefonts/lexend).

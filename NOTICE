@@ -4,5 +4,6 @@ Copyright (c) 2026 Hayden Griffin. MIT License (see LICENSE).
 Bundled third-party material:
 
 - app/icons.js: icon paths from Material Design Icons (https://pictogrammers.com/library/mdi/), Apache License 2.0.
+  See app/LICENSES/Apache-2.0.txt.
 - app/fonts/: Atkinson Hyperlegible Next (Braille Institute of America) and Lexend (The Lexend Project Authors),
-  SIL Open Font License 1.1. See app/fonts/LICENSE.txt.
+  SIL Open Font License 1.1. See app/fonts/LICENSE.txt and app/fonts/OFL.txt.
