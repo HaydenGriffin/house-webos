@@ -34,6 +34,10 @@ arrow keys and Enter; add `&recap` to the URL for the week recap.
 - A Home Assistant user for the TV. Make it non-admin, ideally "local access only", and create a long-lived access
   token for it from its profile page.
 
+> **Status:** an earlier private build of this app runs every day on a rooted 2021 C1. Versions 1.1 and 1.2 have only
+> run in the browser demo and the tests so far. The public package, `ares-install`, the Developer Mode SSH push and
+> launching by `io.github.haydengriffin.house` haven't been tried on a TV yet. Reports either way are very welcome.
+
 ## Install
 
 The package never contains your config or token, so the same IPK works for every home and is safe to share. The
@@ -59,8 +63,8 @@ config goes onto the TV separately, next to the installed app.
    ```
 
    It writes `config.js` into the app's folder through SSH's stdin, so the token never appears in a command line.
-   Reinstalling the IPK removes it, so push the config again after every install. The rooted route is the tested
-   one; whether Developer Mode's SSH user may write into the app folder depends on the firmware.
+   Reinstalling the IPK removes it, so push the config again after every install. Whether Developer Mode's SSH user
+   may write into the app folder depends on the firmware.
 
 To open House quickly, pin it to the TV's home row or put it on a Quick Access number. Home Assistant can also open it
 with the LG webOS integration's `media_player.select_source`, or `webostv.command` with
