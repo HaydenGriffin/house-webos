@@ -7,3 +7,5 @@ Bundled third-party material:
   See app/LICENSES/Apache-2.0.txt.
 - app/fonts/: Atkinson Hyperlegible Next (Braille Institute of America) and Lexend (The Lexend Project Authors),
   SIL Open Font License 1.1. See app/fonts/LICENSE.txt and app/fonts/OFL.txt.
+- app/themes/afterglow/fonts/: Archivo (The Archivo Project Authors), SIL Open Font License 1.1, used only by the
+  Afterglow theme. See app/themes/afterglow/fonts/OFL.txt.

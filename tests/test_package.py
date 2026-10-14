@@ -83,6 +83,12 @@ class PackageTest(unittest.TestCase):
         with self.assertRaises(package.PackageError):
             package.build(self.app, self.dist, version='latest')
 
+    def test_the_afterglow_theme_ships_with_its_fonts_and_licence(self):
+        names = [n.split('/', 4)[-1] for n in self.build()]
+        for part in ('theme.js', 'themes/afterglow/afterglow.css', 'themes/afterglow/fonts/archivo-latin.woff2',
+                     'themes/afterglow/fonts/archivo-latin-ext.woff2', 'themes/afterglow/fonts/OFL.txt'):
+            self.assertIn(part, names)
+
     def test_the_real_app_folder_builds_clean(self):
         files = members(package.build(dist=self.dist))
         self.assertFalse([n for n in files if n.endswith(('config.js', 'config.json'))])

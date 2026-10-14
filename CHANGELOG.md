@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- `theme` in the config: `"afterglow"` sets House in the poster style of the Afterglow TV music app (ink and paper,
+  Archivo, hairlines, square corners, focus inverts to paper, chosen is ticked), home screen and week recap. The default
+  look is unchanged; the theme's stylesheet and fonts load only when it's chosen. Try it with `?demo&theme=afterglow`.
+
 ## 1.2.0
 
 - Recap: the shower duel says whose showers used more water this week, with the extra energy to heat it, or both

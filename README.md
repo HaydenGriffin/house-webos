@@ -8,7 +8,7 @@ A Home Assistant panel for LG TVs, built to be read from the sofa and driven wit
 the TV's sources, what's playing and who's home, and every Sunday it can play a Wrapped-style recap of the week at home.
 
 **[Try the demo in a browser →](https://haydengriffin.github.io/house-webos/)** It runs on made-up data. Use the
-arrow keys and Enter; add `&recap` to the URL for the week recap.
+arrow keys and Enter; add `&recap` to the URL for the week recap, or `&theme=afterglow` for the Afterglow theme.
 
 ## What it does
 
@@ -79,6 +79,7 @@ Developer Mode sessions run out unless they're extended; the Developer Mode app 
 | `url`, `token` | `ws://<home assistant>:8123/api/websocket` and the TV user's token. |
 | `title`, `locale`, `idle_seconds` | The heading, the date and time format (e.g. `en-GB`), and the auto-close delay. |
 | `demo` | `true` runs on the demo states with no Home Assistant, as `?demo` in the URL does. |
+| `theme` | Leave it out for the default look. `"afterglow"` sets House in the poster style of the Afterglow TV music app; see [Themes](#themes). |
 | `lights` | `[{ name, entity, icon?, on?, off? }]`. A press toggles the entity. `on` and `off` replace the state text ("On · 60%", "Off"). |
 | `tiles` | `[{ name, sub?, icon?, toast?, entity?, on?, off?, action?, confirm?, visible? }]`. `action` is `{ service: "domain.service", data?, target? }`; with only `entity`, a press toggles it. `sub` shows while the entity is off; `on` and `off` work as on lights. `confirm: true` (or the armed label) makes it a two-press action: the first press arms it red for 5 s. `visible: { entity, states }` shows it only while the entity is in one of those states. |
 | `door`, `door_name` | A `binary_sensor`; a chip appears while it's on, with how long for. `door_name` is the chip's text (default "Door open"). |
@@ -94,9 +95,24 @@ Developer Mode sessions run out unless they're extended; the Developer Mode app 
 Icons are [Material Design Icons](https://pictogrammers.com/library/mdi/) names in camelCase, from the set in
 [`app/icons.js`](app/icons.js); add any path you need there.
 
+## Themes
+
+The default look is House's own and needs nothing set. `"theme": "afterglow"` lays one more stylesheet over it,
+[`app/themes/afterglow/afterglow.css`](app/themes/afterglow/afterglow.css), so House matches
+Afterglow, a poster-style music app for LG TVs, when both run on one TV: an ink ground and warm paper type in one
+heavy condensed family (Archivo), 2px hairlines, square corners, no shadows or gradients, and one way to show state
+(focus turns a control paper with ink text, the chosen source and anything on carry a drawn tick, disabled is 45%).
+Afterglow takes its colour fields from the album art; House has none, so its fields are two neutrals, and its state
+colours stay only as flat fields that carry a state: a lit room is a lamp-coloured field, an open door a warn field and
+an armed action a red one. The week recap follows it, keeping the two people's colours.
+
+Nothing changes for the default look: `app/theme.js` does nothing without a theme, every rule in the theme's
+stylesheet is scoped to `html[data-theme="afterglow"]`, and the stylesheet and its fonts (about 180 KB) are fetched
+only when the theme is chosen. An unknown theme name keeps the default.
+
 ## Development
 
-Open `app/index.html?demo` in Chrome. The layout is fixed at 1920×1080, the TV's resolution; in a smaller window the
+Open `app/index.html?demo` in Chrome (`?demo&theme=afterglow` for the Afterglow theme). The layout is fixed at 1920×1080, the TV's resolution; in a smaller window the
 demo scales to fit. `app/demo.js` holds the demo home and the full recap stats. The README images are rendered from the
 demo by [`tools/showcase`](tools/showcase). To try it against your own Home Assistant, write the config into the
 app folder with `python3 tools/push_config.py config.json --out app/config.js` (git ignores it, and the package leaves it
@@ -104,4 +120,5 @@ out). Tests: `python3 -m unittest discover -s tests` and `node --test`; lint: `n
 
 ## Licence
 
-[MIT](LICENSE). Bundled icons are Apache 2.0 and the fonts are SIL OFL 1.1; see [NOTICE](NOTICE).
+[MIT](LICENSE). Bundled icons are Apache 2.0 and the fonts (including Archivo in the Afterglow theme) are SIL OFL 1.1;
+see [NOTICE](NOTICE).
