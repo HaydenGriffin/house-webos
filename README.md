@@ -102,6 +102,11 @@ demo by [`tools/showcase`](tools/showcase). To try it against your own Home Assi
 app folder with `python3 tools/push_config.py config.json --out app/config.js` (git ignores it, and the package leaves it
 out). Tests: `python3 -m unittest discover -s tests` and `node --test`; lint: `npx --yes eslint@9 app`.
 
+## Support
+
+House for webOS is free and open source. If it made your evenings on the sofa better, you can
+[buy me a coffee](https://buymeacoffee.com/haydengriffin). Bug reports and pull requests are just as welcome.
+
 ## Licence
 
 [MIT](LICENSE). Bundled icons are Apache 2.0 and the fonts are SIL OFL 1.1; see [NOTICE](NOTICE).
