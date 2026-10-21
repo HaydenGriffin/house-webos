@@ -405,6 +405,114 @@ h2 { font-size: 36px; line-height: 1.15; margin-bottom: 16px; }
 .r-guess-answer { font-size: 180px; }
 .r-guesscard .r-line { margin-top: 10px; }
 
+/* What we did: each person's totals on the left, the week's activities as rows on the right, a disc in their colour. */
+.r-actcard .r-mark, .r-routecard .r-mark, .r-echartcard .r-mark, .r-watchcard .r-mark, .r-recipecard .r-mark { display: none; }
+.r-actcols { display: flex; align-items: flex-start; }
+.r-act-totals { flex: none; width: 420px; }
+.r-act-total + .r-act-total { margin-top: 44px; }
+.r-acts { flex: 1; min-width: 0; margin-left: 64px; }
+.r-act { display: flex; align-items: center; height: 84px; }
+.r-act + .r-act { margin-top: 8px; }
+.r-act .disc { width: 72px; height: 72px; padding: 16px; }
+.r-act .disc.r-p1 { background: var(--p1); color: var(--p1-ink); }
+.r-act .disc.r-p2 { background: var(--p2); color: var(--p2-ink); }
+.r-act-day { flex: none; width: 110px; margin-left: 28px; font-weight: 400; font-size: 36px; color: var(--muted); }
+.r-act-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 46px; }
+.r-act-n { flex: none; width: 190px; text-align: right; font: 600 40px/1 var(--num-font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.r-act-km { color: var(--muted); }
+
+/* Out and about: a route or two drawn on their own on a dark panel, start a ring, end a dot, in the person's colour. */
+.r-routes { display: flex; }
+.r-route { flex: 0 0 auto; width: 840px; }
+.r-route + .r-route { margin-left: 48px; }
+.r-route-map { display: block; width: 840px; height: 575px; padding: 0; border-radius: 40px; background: var(--panel); fill: none; }
+.r-route-map path { stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; }
+.r-route-map.r-p1 path { stroke: var(--p1); }
+.r-route-map.r-p2 path { stroke: var(--p2); }
+.r-route-start { fill: var(--panel); stroke: var(--text); stroke-width: 6; }
+.r-route-end { fill: var(--text); }
+.r-route-name { margin-top: 24px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 44px; }
+.r-route-what { margin-top: 6px; font: 400 36px/1.2 var(--num-font); color: var(--muted); }
+
+/* Energy over time: a bar a week, electricity warm under gas sky, the weeks before faded, last year a thin white tick. */
+.r-echart { display: flex; align-items: flex-end; }
+.r-ecol { flex: 1; min-width: 0; text-align: center; opacity: .5; }
+.r-ecol.r-now { opacity: 1; }
+.r-estack { position: relative; display: flex; flex-direction: column-reverse; align-items: center; justify-content: flex-start; }
+.r-estack > span { flex: none; width: 60%; max-width: 92px; }
+.r-eelec { background: var(--warm); }
+.r-egas { background: var(--accent); }
+/* The stack draws bottom up: its first bar sits on the floor, its last one carries the rounded top. */
+.r-estack > span:first-of-type { border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; }
+.r-estack > span:last-child { border-top-left-radius: 8px; border-top-right-radius: 8px; }
+.r-enone { height: 6px; background: var(--raised-2); border-radius: 3px; }
+.r-ely { position: absolute; left: 12%; right: 12%; height: 0; border-top: 5px solid rgba(244,242,238,.85); }
+.r-evalue { position: absolute; left: -40px; right: -40px; font: 600 44px/1 var(--num-font); white-space: nowrap; }
+.r-ekey { display: flex; margin-top: 30px; font-weight: 400; font-size: 32px; color: var(--muted); }
+.r-ekey span { display: flex; align-items: center; }
+.r-ekey span + span { margin-left: 44px; }
+.r-ekey i { display: inline-block; width: 30px; height: 30px; margin-right: 14px; border-radius: 6px; }
+.r-ekey i.r-ely { position: static; width: 34px; height: 0; border-radius: 0; }
+.r-echartcard .r-line { margin-top: 26px; font-size: 52px; }
+
+/* A record nobody wanted: no sparkles, a warning ring and the headline in the warning colour. */
+.r-badcard .r-mark { color: rgba(255,157,92,.07); }
+.r-warnlabel .disc { background: transparent; box-shadow: inset 0 0 0 5px var(--warn); color: var(--warn); }
+.r-badcard .r-hero-text { color: var(--warn); }
+
+/* What we watched, in detail: the hours and a bar a day on the left, the shows as long bars on the right. */
+.r-watch { display: flex; align-items: flex-start; }
+.r-watch-side { flex: none; width: 640px; }
+.r-watch-side .r-big { margin-top: 0; font-size: 240px; }
+.r-tvdays { display: flex; align-items: flex-end; margin-top: 44px; width: 560px; }
+.r-tvday { flex: 1; text-align: center; }
+.r-tvday span { display: block; width: 34px; margin: 0 auto; border-radius: 6px 6px 2px 2px; background: rgba(244,242,238,.55); }
+.r-tvday p { margin-top: 10px; font-weight: 400; font-size: 28px; color: var(--muted); }
+.r-shows { flex: 1; min-width: 0; margin-left: 72px; }
+.r-show + .r-show { margin-top: 26px; }
+.r-show-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 44px; line-height: 1.15; }
+.r-show-bar { display: flex; align-items: center; margin-top: 10px; }
+.r-show-bar i { flex: none; height: 22px; border-radius: 11px; background: var(--accent); max-width: calc(100% - 170px); }
+.r-show-bar span { flex: none; margin-left: 20px; font: 600 38px/1 var(--num-font); white-space: nowrap; }
+.r-watchcard .r-line { margin-top: 44px; font-size: 48px; color: var(--muted); }
+
+/* A new recipe: its picture large on the left, the name and the facts beside it. */
+.r-recipecard .r-body { display: flex; align-items: center; }
+.r-recipe-pic { flex: none; width: 860px; height: 780px; margin-right: 72px; overflow: hidden; border-radius: 44px; background: var(--raised);
+  box-shadow: 0 26px 60px rgba(0,0,0,.55); }
+.r-recipe-pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.r-recipe-text { flex: 1; min-width: 0; }
+.r-recipe-name { margin-top: 34px; font-size: 96px; line-height: 1.04; letter-spacing: -0.02em;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.r-nopic .r-recipe-name { font-size: 120px; }
+.r-recipecard .r-line { font-size: 52px; color: var(--muted); }
+.r-facts { display: flex; flex-wrap: wrap; margin-top: 36px; }
+.r-facts span { margin: 0 18px 18px 0; padding: 14px 30px; border-radius: 40px; background: var(--panel); font-size: 38px; white-space: nowrap; }
+
+/* Max with the maps of where he went: the cleans above, a floor each side by side under its name. */
+.r-maxfloors .r-body { flex-direction: column; align-items: flex-start; }
+.r-maxfloors .r-max-text { padding-right: 0; }
+.r-maxfloors .r-max-text .r-big { font-size: 130px; margin-top: 12px; }
+.r-maxfloors .r-max-text .r-line { margin-top: 10px; font-size: 44px; }
+.r-floors { display: flex; margin-top: 26px; }
+.r-floor { flex: 0 0 auto; width: 840px; }
+.r-floor + .r-floor { margin-left: 48px; }
+.r-floors .r-map { width: 100%; height: 400px; padding: 22px; transform: none; }
+.r-floors-1 .r-floor { width: 1100px; }
+.r-floor-name { margin-top: 16px; font-size: 38px; color: var(--muted); }
+
+/* Next week with what's on: the forecast, then the events a row each. */
+.r-nextevents .r-forecast .r-day { padding: 18px 0 20px; }
+.r-nextevents .r-day-icon { width: 64px; height: 64px; margin: 8px auto; }
+.r-events { margin-top: 40px; }
+.r-event { display: flex; align-items: center; height: 64px; font-size: 44px; }
+.r-event + .r-event { margin-top: 10px; }
+.r-event-icon { flex: none; width: 48px; height: 48px; color: var(--muted); }
+.r-event-day { flex: none; width: 120px; margin-left: 24px; color: var(--muted); }
+.r-event-time { flex: none; width: 150px; font: 600 40px/1 var(--num-font); font-variant-numeric: tabular-nums; color: var(--muted); }
+.r-event-title { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.r-nextevents .r-line { margin-top: 30px; font-size: 50px; }
+
 /* People chips sit in one wrapper so the list can come from the config. */
 #people { display: flex; align-items: center; }
 #people > * + * { margin-left: 20px; }

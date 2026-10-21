@@ -207,6 +207,87 @@
     return { icon: 'dumbbell', label: 'The gym', html: html, line: gymLine(g, here, goal), cls: 'r-widecard r-gymcard', ms: 5000 };
   }
 
+  /* What we did: the week's recorded activities (runs, walks, rides, gym visits, workouts), a row each, oldest first, and
+     each person's totals beside them. */
+  var KINDS = { run: 'run', walk: 'walk', cycle: 'bike', swim: 'swim', gym: 'dumbbell', strength: 'weightLifter', 'class': 'yoga', other: 'heartPulse' };
+  var ACTIVITIES_MAX = 7;
+  function kindIcon(k) { return KINDS[k] || KINDS.other; }
+  function km(v) { return (Math.round(v * 10) / 10) + ' km'; }
+  function activityItems(a) {
+    return (a && a.items || []).filter(function (x) { return x && who(x.who) && str(x.day) && (str(x.name) || str(x.kind)); })
+      .sort(function (x, y) { return (str(x.date) + str(x.start)) < (str(y.date) + str(y.start)) ? -1 : 1; });
+  }
+  function activityTotals(a, items) {
+    return P.map(function (p) {
+      var t = a.totals && a.totals[p.id], mine = items.filter(function (x) { return person(x.who) === p; });
+      if (!t) {
+        t = { count: mine.length, minutes: 0, km: 0 };
+        mine.forEach(function (x) { if (num(x.minutes)) t.minutes += x.minutes; if (num(x.km)) t.km += x.km; });
+      }
+      return { p: p, count: num(t.count) ? t.count : mine.length, minutes: t.minutes, km: t.km };
+    }).filter(function (t) { return t.count > 0; });
+  }
+  function activities(a) {
+    var items = activityItems(a);
+    if (!items.length || !P.length) return null;
+    var totals = activityTotals(a, items);
+    var side = '<div class="r-act-totals">' + totals.map(function (t) {
+      var bits = [];
+      if (num(t.minutes) && t.minutes > 0) bits.push(minutes(t.minutes));
+      if (num(t.km) && t.km > 0) bits.push(km(t.km));
+      return '<div class="r-act-total r-step"><p class="r-who ' + t.p.cls + '">' + esc(t.p.name) + '</p>' +
+        '<p class="r-side-n">' + t.count + '<span class="r-side-unit">' + plural(t.count, 'activity', 'activities') + '</span></p>' +
+        (bits.length ? '<p class="r-side-sub">' + esc(bits.join(' · ')) + '</p>' : '') + '</div>';
+    }).join('') + '</div>';
+    var rows = '<div class="r-acts">' + items.slice(0, ACTIVITIES_MAX).map(function (x, n) {
+      var p = person(x.who);
+      return '<div class="r-act r-step"' + delay(0.3 + n * 0.1) + '><span class="disc ' + p.cls + '">' + svg(kindIcon(x.kind)) + '</span>' +
+        '<span class="r-act-day">' + esc(x.day) + '</span><span class="r-act-name">' + esc(str(x.name) || capital(x.kind)) + '</span>' +
+        '<span class="r-act-n">' + (num(x.minutes) && x.minutes > 0 ? minutes(x.minutes) : '') + '</span>' +
+        '<span class="r-act-n r-act-km">' + (num(x.km) && x.km > 0 ? km(x.km) : '') + '</span></div>';
+    }).join('') + '</div>';
+    var more = items.length - ACTIVITIES_MAX;
+    return { icon: 'run', label: 'What we did', html: '<div class="r-actcols">' + side + rows + '</div>', htmlSteps: true,
+             sub: more > 0 ? 'And ' + more + ' more' : '', cls: 'r-widecard r-actcard', ms: 6500 };
+  }
+
+  /* A route as an SVG path: longitude scaled by the cosine of the mean latitude (equirectangular, fine for a walk), fitted
+     into w by h inside pad, north up. null without two usable points. */
+  function routePath(points, w, h, pad) {
+    var pts = (points || []).filter(function (q) { return q && num(q[0]) && num(q[1]); });
+    if (pts.length < 2) return null;
+    var lat0 = 0;
+    pts.forEach(function (q) { lat0 += q[0]; });
+    var k = Math.cos(lat0 / pts.length * Math.PI / 180);
+    var xy = pts.map(function (q) { return [q[1] * k, -q[0]]; });
+    var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    xy.forEach(function (q) { minX = Math.min(minX, q[0]); maxX = Math.max(maxX, q[0]); minY = Math.min(minY, q[1]); maxY = Math.max(maxY, q[1]); });
+    var spanX = maxX - minX, spanY = maxY - minY;
+    if (!(spanX > 0 || spanY > 0)) return null;
+    var scale = Math.min(spanX > 0 ? (w - 2 * pad) / spanX : Infinity, spanY > 0 ? (h - 2 * pad) / spanY : Infinity);
+    var offX = (w - spanX * scale) / 2, offY = (h - spanY * scale) / 2;
+    var out = xy.map(function (q) { return [Math.round(((q[0] - minX) * scale + offX) * 10) / 10, Math.round(((q[1] - minY) * scale + offY) * 10) / 10]; });
+    return { d: 'M' + out.map(function (q) { return q[0] + ',' + q[1]; }).join('L'), start: out[0], end: out[out.length - 1] };
+  }
+  /* Out and about: up to two of the week's routes drawn on their own, the longest first, no map under them. */
+  var ROUTE_W = 760, ROUTE_H = 520;
+  function routes(a) {
+    var withRoute = activityItems(a).filter(function (x) { return routePath(x.route, ROUTE_W, ROUTE_H, 40); });
+    if (!withRoute.length) return null;
+    withRoute.sort(function (x, y) { return (num(y.km) ? y.km : 0) - (num(x.km) ? x.km : 0); });
+    var html = '<div class="r-routes">' + withRoute.slice(0, 2).map(function (x, n) {
+      var p = person(x.who), r = routePath(x.route, ROUTE_W, ROUTE_H, 40), bits = [x.day];
+      if (num(x.km) && x.km > 0) bits.push(km(x.km));
+      if (num(x.minutes) && x.minutes > 0) bits.push(minutes(x.minutes));
+      return '<div class="r-route r-step"' + delay(0.3 + n * 0.25) + '><svg class="r-route-map ' + p.cls + '" viewBox="0 0 ' + ROUTE_W + ' ' + ROUTE_H + '" aria-hidden="true">' +
+        '<path d="' + r.d + '"/><circle class="r-route-start" cx="' + r.start[0] + '" cy="' + r.start[1] + '" r="14"/>' +
+        '<circle class="r-route-end" cx="' + r.end[0] + '" cy="' + r.end[1] + '" r="14"/></svg>' +
+        '<p class="r-route-name"><span class="' + p.cls + '">' + esc(p.name) + '</span> · ' + esc(str(x.name) || capital(x.kind)) + '</p>' +
+        '<p class="r-route-what">' + esc(bits.join(' · ')) + '</p></div>';
+    }).join('') + '</div>';
+    return { icon: 'mapMarkerPath', label: 'Out and about', html: html, htmlSteps: true, cls: 'r-widecard r-routecard', ms: 6000 };
+  }
+
   /* Restless nights: only the notable one, the most restless night or a week nobody got up. */
   function restless(r) {
     if (!r) return null;
@@ -282,6 +363,44 @@
              cls: aside ? 'r-widecard r-energycard' : '', ms: 4500 };
   }
 
+  /* Energy over time: a bar a week, electricity under gas, this week lit, a tick where the same week last year stood. */
+  var CHART_H = 420;
+  function energySeries(e) {
+    var s = e && e.series;
+    if (!s || !s.labels || !s.elec) return null;
+    var n = Math.min(12, s.labels.length), from = s.labels.length - n, weeks = [];
+    for (var k = from; k < s.labels.length; k++) {
+      var el = s.elec[k], gas = s.gas ? s.gas[k] : null, ly = s.last_year ? s.last_year[k] : null;
+      weeks.push({ label: s.labels[k], elec: num(el) ? el : null, gas: num(gas) ? gas : null, ly: num(ly) ? ly : null });
+    }
+    var known = weeks.filter(function (w) { return w.elec !== null || w.gas !== null; });
+    if (known.length < 4) return null;
+    var top = 0;
+    weeks.forEach(function (w) { top = Math.max(top, (w.elec || 0) + (w.gas || 0), w.ly || 0); });
+    if (!(top > 0)) return null;
+    function h(v) { return Math.round(v / top * CHART_H); }
+    var last = weeks.length - 1, anyGas = weeks.some(function (w) { return w.gas !== null; }), anyLy = weeks.some(function (w) { return w.ly !== null; });
+    var cols = weeks.map(function (w, i) {
+      var total = (w.elec || 0) + (w.gas || 0);
+      return '<div class="r-ecol' + (i === last ? ' r-now' : '') + '"><div class="r-estack" style="height:' + CHART_H + 'px">' +
+        (i === last && total ? '<p class="r-evalue" style="bottom:' + (Math.max(h(total), w.ly !== null ? h(w.ly) : 0) + 18) + 'px">' + money(total, 0) + '</p>' : '') +
+        (w.ly !== null ? '<i class="r-ely" style="bottom:' + h(w.ly) + 'px"></i>' : '') +
+        (w.elec !== null ? '<span class="r-eelec" style="height:' + h(w.elec) + 'px"></span>' : '') +
+        (w.gas !== null ? '<span class="r-egas" style="height:' + h(w.gas) + 'px"></span>' : '') +
+        (total ? '' : '<span class="r-enone"></span>') + '</div><p class="r-pair-day">' + esc(w.label) + '</p></div>';
+    }).join('');
+    var key = '<p class="r-ekey"><span><i class="r-eelec"></i>Electricity</span>' + (anyGas ? '<span><i class="r-egas"></i>Gas</span>' : '') +
+      (anyLy ? '<span><i class="r-ely"></i>Same week last year</span>' : '') + '</p>';
+    var now = weeks[last], prev = weeks[last - 1], line = '';
+    var t1 = (now.elec || 0) + (now.gas || 0), t0 = prev ? (prev.elec || 0) + (prev.gas || 0) : 0;
+    if (t1 && t0) {
+      var pct = Math.round((t1 / t0 - 1) * 100);
+      line = money(t1, 2) + ' this week, ' + (pct ? Math.abs(pct) + '% ' + (pct > 0 ? 'more' : 'less') + ' than the week before' : 'the same as the week before');
+    }
+    return { icon: 'chartLine', label: 'Energy over time', html: '<div class="r-echart">' + cols + '</div>' + key, line: line,
+             cls: 'r-widecard r-echartcard', ms: 6000 };
+  }
+
   /* The quiz: up to three tiles, the right one lights up after a pause, then the answer's line. The answer must be one
      of the tiles shown. */
   function quiz(q) {
@@ -296,10 +415,40 @@
     return { icon: iconFor(q.icon), label: 'Quick question', body: body, cls: 'r-widecard r-quizcard', revealAt: 3200, ms: 7500 };
   }
 
+  /* What we watched, in detail: the hours, the shows they went on as bars, a bar a day, and the apps or inputs they came
+     through. Only when there are two shows or a week of days to show; otherwise the plain card below. */
+  function hoursText(v) { return half(v) + ' h'; }
+  function named(list, key) {
+    return (list || []).filter(function (x) { return x && str(x[key]) && num(x.hours) && x.hours > 0; });
+  }
+  function watchedDetail(w, hours) {
+    var top = named(w.top, 'title').slice(0, 5), days = (w.days || []).filter(function (d) { return d && str(d.day); }).slice(0, 7);
+    var dayNums = days.filter(function (d) { return num(d.hours); });
+    if (top.length < 2 && dayNums.length < 3) return null;
+    var most = Math.max.apply(null, top.map(function (t) { return t.hours; }).concat([0.1]));
+    var shows = top.length ? '<div class="r-shows">' + top.map(function (t, n) {
+      return '<div class="r-show r-step"' + delay(0.35 + n * 0.12) + '><p class="r-show-name">' + esc(t.title) + '</p>' +
+        '<p class="r-show-bar"><i style="width:' + Math.max(3, Math.round(t.hours / most * 100)) + '%"></i><span>' + hoursText(t.hours) + '</span></p></div>';
+    }).join('') + '</div>' : '';
+    var dayTop = Math.max.apply(null, dayNums.map(function (d) { return d.hours; }).concat([0.1]));
+    var strip = dayNums.length >= 3 ? '<div class="r-tvdays">' + days.map(function (d) {
+      var v = num(d.hours) ? d.hours : 0;
+      return '<div class="r-tvday"><span style="height:' + Math.max(6, Math.round(v / dayTop * 120)) + 'px"></span><p>' + esc(d.day) + '</p></div>';
+    }).join('') + '</div>' : '';
+    var side = '<div class="r-watch-side"><p class="r-big r-step"><span class="r-n">' + Math.round(hours) + '</span><span class="r-unit">' +
+      plural(Math.round(hours), 'hour', 'hours') + '</span></p>' + (strip ? '<div class="r-step">' + strip + '</div>' : '') + '</div>';
+    var via = named(w.inputs, 'name').length >= 2 ? named(w.inputs, 'name') : named(w.apps, 'name');
+    var line = via.length ? via.slice(0, 4).map(function (x) { return x.name + ' ' + hoursText(x.hours); }).join(' · ')
+      : w.binge && str(w.binge.day) && num(w.binge.hours) ? 'Biggest night ' + w.binge.day + ', ' + half(w.binge.hours) + ' hours' : '';
+    return { icon: 'television', label: 'What we watched', html: '<div class="r-watch">' + side + shows + '</div>', htmlSteps: true,
+             line: line, cls: 'r-widecard r-watchcard', ms: 6500 };
+  }
   /* What we watched: TV hours and the title most of them went on. */
   function watched(w, tvHours) {
     var hours = w && num(w.hours) ? w.hours : tvHours;
     if (!num(hours) || hours < 3) return null;
+    var detail = w && watchedDetail(w, hours);
+    if (detail) return detail;
     var h = Math.round(hours), line = '';
     var top = w && (w.top || []).filter(function (t) { return t && t.title; })[0];
     var b = w && w.binge;
@@ -352,6 +501,25 @@
     }).join('') + '</div>';
     return { icon: 'silverwareForkKnife', label: 'The week on a plate', html: grid, htmlSteps: true, line: plateLine(f),
              cls: 'r-widecard r-platecard', ms: 6000 };
+  }
+
+  /* A new recipe: one card each for up to three tried for the first time this week, its picture large beside its name,
+     when it was first had, and how long it takes, how many it feeds and where it came from. */
+  function recipes(f, pics) {
+    var list = (f && f.recipes || []).filter(function (r) { return r && str(r.name) && r.first === true; }).slice(0, 3);
+    return list.map(function (r) {
+      var pic = pics && str(r.image) ? pics[r.image] : '';
+      var facts = [];
+      if (num(r.minutes) && r.minutes > 0) facts.push(minutes(r.minutes));
+      if (num(r.servings) && r.servings > 0) facts.push('Serves ' + r.servings);
+      if (str(r.source)) facts.push(r.source);
+      var when = 'First time' + (str(r.day) ? ' · ' + r.day : '') + (num(r.had) && r.had > 1 ? ' · had ' + r.had + ' times' : '');
+      var text = '<div class="r-recipe-text">' + labelHtml('chefHat', 'New recipe') +
+        '<h2 class="r-recipe-name r-step">' + esc(r.name) + '</h2><p class="r-line r-step">' + esc(when) + '</p>' +
+        (facts.length ? '<p class="r-facts r-step">' + facts.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') + '</p>' : '') + '</div>';
+      return { icon: 'chefHat', label: 'New recipe', body: (pic ? '<div class="r-recipe-pic r-step"><img src="' + esc(pic) + '" alt=""></div>' : '') + text,
+               cls: 'r-widecard r-recipecard' + (pic ? '' : ' r-nopic'), ms: 5500 };
+    });
   }
 
   /* What we read: up to three books side by side, the ones finished this week first, then the ones being read with how far
@@ -408,14 +576,29 @@
     return { icon: 'helpCircle', label: 'Guess the week', body: body, cls: 'r-widecard r-winnercard r-guesscard', revealAt: 3400, ms: 7500 };
   }
 
-  /* The robot vacuum's week: the cleans, one line, and its own map of the floor when a camera has a picture. */
-  function vacuumCard(m, picture) {
+  /* The robot vacuum's week: the cleans, one line, and its own map of the floor when a camera has a picture; with maps
+     of where it went (vacuum.maps: the cleaning path pictures), up to two floors side by side. */
+  function vacuumMaps(m, pics) {
+    return (m.maps || []).filter(function (x) { return x && str(x.picture) && pics && pics[x.picture]; }).slice(0, 2).map(function (x, n) {
+      var bits = [str(x.floor) || 'Floor'];
+      if (str(x.when)) bits.push(x.when);
+      if (num(x.m2) && x.m2 > 0) bits.push(x.m2 + ' m²');
+      return '<div class="r-floor r-step"' + delay(0.3 + n * 0.2) + '><div class="r-map"><img src="' + esc(pics[x.picture]) + '" alt=""></div>' +
+        '<p class="r-floor-name">' + esc(bits.join(' · ')) + '</p></div>';
+    });
+  }
+  function vacuumCard(m, picture, pics) {
     if (!m || !num(m.cleans) || !m.cleans) return null;
     var label = str(m.name) ? m.name + '’s week' : 'The vacuum’s week';
     var line = str(m.line) || (num(m.m2) ? m.m2 + ' m² cleaned' : '');
     var big = '<p class="r-big"><span class="r-n">' + m.cleans + '</span><span class="r-unit">' + plural(m.cleans, 'clean', 'cleans') + '</span></p>';
     var text = '<div class="r-max-text">' + labelHtml('robotVacuum', label) + '<div class="r-step">' + big + '</div>' +
       (line ? '<p class="r-line r-step">' + esc(line) + '</p>' : '') + '</div>';
+    var floors = vacuumMaps(m, pics);
+    if (floors.length) {
+      return { icon: 'robotVacuum', label: label, body: text + '<div class="r-floors r-floors-' + floors.length + '">' + floors.join('') + '</div>',
+               cls: 'r-widecard r-maxcard r-maxfloors', ms: 6000 };
+    }
     if (!picture) return { icon: 'robotVacuum', label: label, body: text, ms: 4500 };
     return { icon: 'robotVacuum', label: label, body: text + '<div class="r-map r-step"><img src="' + esc(picture) + '" alt=""></div>',
              cls: 'r-widecard r-maxcard', ms: 5000 };
@@ -430,13 +613,25 @@
     }
     return '<div class="r-burst" aria-hidden="true">' + html + '</div>';
   }
+  function bad(x) { return x && x.tone === 'bad'; }
   function record(list) {
-    var r = (list || []).filter(function (x) { return x && str(x.text); })[0];
+    var r = (list || []).filter(function (x) { return x && str(x.text) && !bad(x); })[0];
     if (!r) return null;
     var cut = r.text.indexOf(': '), hero = cut > 0 ? r.text.slice(0, cut) : r.text, line = cut > 0 ? capital(r.text.slice(cut + 2)) : '';
     var body = labelHtml(iconFor(r.icon), 'New record') + '<h2 class="r-hero-text r-step">' + esc(hero) + '</h2>' +
       (line ? '<p class="r-line r-step">' + esc(line) + '</p>' : '');
     return { icon: 'trophy', label: 'New record', body: body, before: burst(), cls: 'r-recordcard', ms: 4500 };
+  }
+
+  /* A record nobody wanted (the priciest week): said plainly, the detail as the headline, no sparkles, in the warning
+     colour. */
+  function badRecord(list) {
+    var r = (list || []).filter(function (x) { return str(x && x.text) && bad(x); })[0];
+    if (!r) return null;
+    var cut = r.text.indexOf(': '), hero = cut > 0 ? capital(r.text.slice(cut + 2)) : r.text, line = cut > 0 ? r.text.slice(0, cut) : '';
+    var body = labelHtml('alertCircleOutline', 'Worth knowing', 'r-warnlabel') + '<h2 class="r-hero-text r-step">' + esc(hero) + '</h2>' +
+      (line ? '<p class="r-line r-step">' + esc(line) + '</p>' : '');
+    return { icon: 'alertCircleOutline', label: 'Worth knowing', body: body, cls: 'r-badcard', ms: 4500 };
   }
 
   /* The house says: one sentence in the house's own voice. */
@@ -496,15 +691,30 @@
                   'rainy': 'weatherRainy', 'pouring': 'weatherPouring', 'fog': 'weatherFog', 'snowy': 'weatherSnowy', 'snowy-rainy': 'weatherSnowyRainy',
                   'hail': 'weatherHail', 'windy': 'weatherWindy', 'windy-variant': 'weatherWindyVariant', 'lightning': 'weatherLightning',
                   'lightning-rainy': 'weatherLightningRainy', 'exceptional': 'alert' };
+  /* What's on: the calendar's events, then the bins, a row each with the day and the time. */
+  function whatsOn(n) {
+    var rows = (n.events || []).filter(function (e) { return e && str(e.day) && str(e.title); }).slice(0, 5).map(function (e) {
+      return { icon: 'calendarClock', day: e.day, time: str(e.time), title: e.title };
+    });
+    if (n.bins && str(n.bins.day) && rows.length < 5) rows.push({ icon: 'trashCanOutline', day: n.bins.day.slice(0, 3), time: '', title: (str(n.bins.what) || 'Bins') + ' bin' });
+    var order = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    function at(e) { var k = order.indexOf(e.day.slice(0, 3)); return (k < 0 ? 7 : k) * 10000 + (e.time ? parseInt(e.time.replace(':', ''), 10) : 0); }
+    return rows.map(function (e, k) { e.k = k; return e; }).sort(function (a, b) { return at(a) - at(b) || a.k - b.k; });
+  }
   function nextWeek(n) {
     if (!n) return null;
-    var days = (n.forecast || []).filter(function (d) { return d && d.day && num(d.high); }).slice(0, 7);
-    if (!days.length && !str(n.challenge)) return null;
+    var days = (n.forecast || []).filter(function (d) { return d && d.day && num(d.high); }).slice(0, 7), on = whatsOn(n);
+    if (!days.length && !str(n.challenge) && !(n.events || []).some(function (e) { return e && str(e.title); })) return null;
     var strip = days.length ? '<div class="r-forecast">' + days.map(function (d, k) {
       return '<div class="r-day r-step"' + delay(0.3 + k * 0.1) + '><p class="r-day-name">' + esc(d.day) + '</p><span class="r-day-icon">' + svg(WEATHER[d.condition] || 'weatherCloudy') + '</span>' +
         '<p class="r-day-temp">' + Math.round(d.high) + '°' + (num(d.low) ? '<span>' + Math.round(d.low) + '°</span>' : '') + '</p></div>';
     }).join('') + '</div>' : '';
-    return { icon: 'calendarArrowRight', label: 'Next week', html: strip, htmlSteps: true, line: str(n.challenge), cls: 'r-widecard r-nextcard', ms: 4500 };
+    var events = on.length ? '<div class="r-events">' + on.map(function (e, k) {
+      return '<p class="r-event r-step"' + delay(0.6 + k * 0.1) + '><span class="r-event-icon">' + svg(e.icon) + '</span><span class="r-event-day">' + esc(e.day) +
+        '</span><span class="r-event-time">' + esc(e.time) + '</span><span class="r-event-title">' + esc(e.title) + '</span></p>';
+    }).join('') + '</div>' : '';
+    return { icon: 'calendarArrowRight', label: 'Next week', html: strip + events, htmlSteps: true, line: str(n.challenge),
+             cls: 'r-widecard r-nextcard' + (events ? ' r-nextevents' : ''), ms: on.length ? 6500 : 4500 };
   }
 
   /* The finale: each category's winner one by one, a drumroll, then the name. */
@@ -527,28 +737,35 @@
   }
 
   function statsBody(data, s) {
+    var pics = data.pictures || data.bookCovers || {};
     return [
       stepsDuel(s.duel, s.belt),
       goalsDuel(s.goals),
       gymCard(s.gym),
+      activities(s.activities),
+      routes(s.activities),
       sleepDuel(s.sleep),
       restless(s.restless),
       showerDuel(s.showers),
       energyStats(s.energy, s.trends),
+      energySeries(s.energy),
+      badRecord(s.records),
       quiz(s.quiz),
       watched(s.watched, data.tvHours),
       plates(s.food, data.foodPhotos) || dinners(s.dinners),
-      reading(s.reading, data.bookCovers),
-      vacuumCard(s.vacuum, data.vacuumMap),
+    ].concat(recipes(s.food, pics), [
+      reading(s.reading, pics),
+      vacuumCard(s.vacuum, data.vacuumMap, pics),
       record(s.records),
       houseSays(s.house_says),
       inNumbers(s.month_recap, false),
       nextWeek(s.next_week),
-    ].concat(highlights(s.highlights), [guess(s.guess), winner(s.winner)]);
+    ]).concat(highlights(s.highlights), [guess(s.guess), winner(s.winner)]);
   }
 
-  /* data: { stats (ignored when over 8 days old), tvHours, vacuumMap and foodPhotos (absolute URLs that loaded), bookCovers
-     ({ cover path in the stats: URL that loaded }), locale, now } */
+  /* data: { stats (ignored when over 8 days old), tvHours, vacuumMap and foodPhotos (absolute URLs that loaded), pictures
+     ({ path in the stats: URL that loaded } for book covers, recipe pictures and vacuum maps; bookCovers is the old name),
+     locale, now } */
   function build(data) {
     var now = data.now || new Date(), s = freshStats(data.stats, now);
     if (!s) return [];
@@ -718,5 +935,5 @@
     };
   }
 
-  window.HouseRecap = { build: build, play: play };
+  window.HouseRecap = { build: build, play: play, routePath: routePath };
 })();
