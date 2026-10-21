@@ -116,6 +116,15 @@
     'stroke="#ffc76b" stroke-width="10" stroke-linecap="round" opacity=".55" fill="none"/>' +
     '<circle cx="85" cy="215" r="14" fill="#ffc76b"/></svg>');
 
+  /* Two made-up book covers, drawn so the demo needs no network. */
+  function cover(ground, ink, title, author) {
+    return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300">' +
+      '<rect width="200" height="300" fill="' + ground + '"/><circle cx="150" cy="70" r="46" fill="' + ink + '" opacity=".85"/>' +
+      '<rect x="0" y="196" width="200" height="104" fill="' + ink + '" opacity=".18"/>' +
+      '<text x="18" y="232" font-family="Georgia, serif" font-size="25" font-weight="700" fill="' + ink + '">' + title + '</text>' +
+      '<text x="18" y="268" font-family="Georgia, serif" font-size="15" fill="' + ink + '">' + author + '</text></svg>');
+  }
+
   function recap() {
     var now = new Date(), mon = day(0), sun = day(6);
     function d(x) { return x.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }); }
@@ -141,6 +150,16 @@
       quiz: { question: 'How many thousand steps did you walk between you?', options: ['64', '102', '148'], answer_index: 1,
               reveal: '101,694 steps altogether.', icon: 'shoePrint' },
       watched: { hours: 32, top: [{ title: 'The Bear' }] },
+      gym: {
+        days: DAYS.map(function (name, n) { return { day: name, alex: n === 1 || n === 5, sam: n === 0 || n === 3 || n === 5 }; }),
+        alex: { days: 2, minutes: 105, streak: 3 }, sam: { days: 3, minutes: 170, streak: 6 },
+      },
+      reading: {
+        finished: [{ title: 'The Salt Orchard', author: 'Mara Ellis', who: 'sam', cover: cover('#e8d9b5', '#3b2a1a', 'The Salt', 'Mara Ellis') }],
+        current: [{ title: 'Northern Lines', author: 'Tom Achebe-Price', who: 'alex', percent: 64, cover: cover('#1f3a4d', '#f2e6c9', 'Northern', 'T. Achebe-Price') },
+                  { title: 'A Year of Small Gardens', author: 'Ines Okafor', who: 'sam', percent: 22 }],
+        year: { sam: 19 },
+      },
       dinners: { days: [
         { day: 'Mon', meal: 'Chicken katsu curry' }, { day: 'Tue', meal: 'Pierogi with fried onions' },
         { day: 'Wed', meal: 'Roasted sweet potatoes with guacamole' }, { day: 'Thu', meal: 'Beef ragù' },
@@ -160,7 +179,7 @@
       },
       guess: { question: 'Who’ll take the longer showers this week?', answer: 'sam', guesses: { alex: 'sam', sam: 'alex' }, right: ['alex'] },
       winner: { name: 'sam', categories: [
-        { label: 'Steps', who: 'sam' }, { label: 'Best single day', who: 'alex' }, { label: 'Most sleep', who: 'alex' },
+        { label: 'Steps', who: 'sam' }, { label: 'Best single day', who: 'alex' }, { label: 'Gym days', who: 'sam' }, { label: 'Most sleep', who: 'alex' },
         { label: 'Early bird', who: 'sam' }, { label: 'Quickest showers', who: 'alex' },
       ] },
       highlights: [{ icon: 'chefHat', label: 'The kitchen', value: 6, unit: 'dinners cooked at home', line: 'And a loaf of five-seed bread' }],

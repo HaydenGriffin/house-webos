@@ -23,8 +23,8 @@ arrow keys and Enter; add `&recap` to the URL for the week recap, or `&theme=aft
   reading) stays off the screen while it's on.
 - **Live.** It holds one websocket to Home Assistant and subscribes to only the entities it shows, using the compressed
   `subscribe_entities` stream, so a 2021 TV keeps up.
-- **Your week at home.** Full-screen cards with count-ups, paired bar charts, a quiz, a guess-the-week reveal and a
-  winner with a drumroll. The cards come from one JSON object that any automation can produce; see
+- **Your week at home.** Full-screen cards with count-ups, paired bar charts, the gym days, the books you finished or are
+  reading (with their covers), a quiz, a guess-the-week reveal and a winner with a drumroll. The cards come from one JSON object that any automation can produce; see
   [`docs/recap-stats.md`](docs/recap-stats.md). An automation can start it on the TV with nobody at the remote.
 
 <img src="docs/images/recap.png" alt="Six recap cards: a steps duel, a quiz, the week's dinners, the energy bill, the robot vacuum's week and the winner" width="100%">

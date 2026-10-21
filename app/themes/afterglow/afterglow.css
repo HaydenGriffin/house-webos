@@ -182,3 +182,14 @@ html[data-theme="afterglow"] .r-belt { background: var(--field-lamp); }
 html[data-theme="afterglow"] .r-belt i { border: 3px solid var(--ink); background: var(--field-lamp); color: var(--ink); }
 html[data-theme="afterglow"] .r-crown { color: var(--field-lamp); }
 html[data-theme="afterglow"] .r-drum i { background: var(--paper-2); }
+html[data-theme="afterglow"] .r-side-unit { font-weight: 700; color: var(--paper-2); }
+html[data-theme="afterglow"] .r-side-sub, html[data-theme="afterglow"] .r-book-author { font-weight: 500; color: var(--paper-2); }
+html[data-theme="afterglow"] .r-book-title { font-weight: 820; font-stretch: 80%; letter-spacing: -.01em; }
+html[data-theme="afterglow"] .r-cover { border-radius: 0; box-shadow: none; background: var(--field-b); }
+html[data-theme="afterglow"] .r-nocover { background: var(--field-b); color: var(--paper-2); }
+html[data-theme="afterglow"] .r-book-done { border-radius: 0; background: var(--field-lamp); color: var(--ink); }
+html[data-theme="afterglow"] .r-book-bar, html[data-theme="afterglow"] .r-book-bar i { border-radius: 0; }
+html[data-theme="afterglow"] .r-book-bar { height: 8px; background: var(--rule); }
+html[data-theme="afterglow"] .r-book-bar i { background: var(--paper); }
+html[data-theme="afterglow"] .r-book-bar i.r-p1 { background: var(--p1); }
+html[data-theme="afterglow"] .r-book-bar i.r-p2 { background: var(--p2); }

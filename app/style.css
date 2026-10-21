@@ -258,6 +258,11 @@ h2 { font-size: 36px; line-height: 1.15; margin-bottom: 16px; }
 .r-tick.r-on.r-p1 { border-color: var(--p1); background: var(--p1); }
 .r-tick.r-on.r-p2 { border-color: var(--p2); background: var(--p2); }
 .r-tick.r-none { border-style: dashed; opacity: .4; }
+/* The gym: days each with a dot per day between them, lit on a gym day; one person alone keeps the dots on the right. */
+.r-side-unit { margin-left: 16px; font: 600 44px/1 var(--text-font); letter-spacing: 0; color: var(--muted); }
+.r-side-sub { margin-top: 12px; font-weight: 400; font-size: 36px; color: var(--muted); white-space: nowrap; }
+.r-solo .r-pairs { margin-right: 0; }
+.r-gymcard .r-pair-bars { height: auto; padding-bottom: 6px; }
 /* The shower duel: two averages with a quiet "vs" between. */
 .r-vs { flex: 1; min-width: 0; padding-bottom: 20px; text-align: center; font-size: 56px; color: var(--muted); }
 /* The steps belt: a gold strap with a round plate, by its holder's name. */
@@ -310,6 +315,28 @@ h2 { font-size: 36px; line-height: 1.15; margin-bottom: 16px; }
 .r-plate img { display: block; width: 100%; height: 100%; object-fit: cover; transform: scale(1.12); }
 .r-platecard .r-line { margin-top: 40px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .r-platecard .r-main ~ .r-step { transition-delay: 1.3s; }
+
+/* What we read: up to three books side by side on the shelf, cover first, a tick when finished, else a progress bar. */
+.r-readcard .r-mark { display: none; }
+.r-readcard .r-main { margin-top: 36px; }
+.r-readcard .r-line { margin-top: 36px; font-size: 56px; }
+.r-shelf { display: flex; }
+.r-book { flex: 0 0 auto; width: 520px; min-width: 0; }
+.r-book + .r-book { margin-left: 84px; }
+.r-cover { display: block; width: 200px; height: 300px; overflow: hidden; border-radius: 14px; background: var(--raised);
+  box-shadow: 0 26px 60px rgba(0,0,0,.55); }
+.r-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.r-nocover { padding: 95px 55px; color: var(--muted); background: linear-gradient(90deg, var(--raised-2) 0 18px, var(--raised) 18px); }
+.r-book-title { margin-top: 26px; font-size: 46px; line-height: 1.1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.r-book-author { margin-top: 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 400; font-size: 34px; color: var(--muted); }
+.r-book-state { display: flex; align-items: center; margin-top: 16px; font: 600 34px/1.2 var(--num-font); white-space: nowrap; }
+.r-book-state b { margin-left: 10px; font-family: var(--text-font); }
+.r-book-done { flex: none; width: 44px; height: 44px; margin-right: 12px; padding: 6px; border-radius: 50%; background: var(--warm); color: var(--warm-ink); }
+.r-book-bar { flex: none; width: 220px; height: 14px; margin-right: 20px; overflow: hidden; border-radius: 7px; background: var(--raised-2); }
+.r-book-bar i { display: block; height: 100%; border-radius: 7px; background: var(--warm); }
+.r-book-bar i.r-p1 { background: var(--p1); }
+.r-book-bar i.r-p2 { background: var(--p2); }
+.r-readcard .r-main ~ .r-step { transition-delay: .9s; }
 
 /* New record: the record as the hero, a burst of sparkles from the big trophy behind it. */
 .r-recordcard .r-mark { color: rgba(var(--warm-rgb), .1); }
