@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.0
 
 - Lights: CH + and CH − brighten and dim the light in focus (`step`, default 10%), and `action` runs instead of the
   plain toggle, e.g. a script that follows Adaptive Lighting.
