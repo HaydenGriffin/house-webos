@@ -1,0 +1,184 @@
+/* Afterglow: House set in the poster world of the Afterglow TV music app, so the two apps on one TV read as one product.
+   Laid over style.css only when the config says "theme": "afterglow" (theme.js); every rule below is scoped to
+   html[data-theme="afterglow"], so the default look never sees it.
+
+   The rules, from Afterglow's DESIGN.md, at 1920×1080 (1vh = 10.8px, 1vw = 19.2px):
+   - Ink ground, warm paper text, one family (Archivo, heavy and condensed for titles), 2px hairlines as the only lines.
+   - Square corners; no shadows, gradients, glow, blur or filters.
+   - One state vocabulary: focus inverts to paper with ink text; chosen carries a drawn tick; disabled drops to 45%.
+   - A 12-column grid with 96px (5vw) margins, 122px columns and 24px gutters: Lights over columns 1–6, TV and music
+     over 7–12.
+   - Colour. Afterglow's fields come from the cover art and it owns no accent. House has no artwork, so its fields are
+     the two neutral fields, and House's state colours survive only as flat fields that carry a state, never as accents
+     on text, rings or glows: a lit room is a lamp field, an open door a warn field, an armed action an alert field.
+     Sky (House's selection colour) is gone: focus is paper, the chosen source is ticked. Each field passes 4.5:1 with
+     its text (lamp 6.3:1 ink, warn 6.5:1 ink, alert 5.5:1 paper). In the recap the two people keep their colours.
+   Built for the TV's Chromium: no flex gap, no :focus-visible, no filters. */
+
+@font-face { font-family: Archivo; font-weight: 400 900; font-stretch: 62% 125%; src: url(fonts/archivo-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+/* Latin Extended (ą, ł, ő, ž…); fetched only when such a letter is on screen. */
+@font-face { font-family: Archivo; font-weight: 400 900; font-stretch: 62% 125%; src: url(fonts/archivo-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+html[data-theme="afterglow"] {
+  --ink: rgb(18,20,23); --paper: rgb(239,235,227); --paper-2: rgba(239,235,227,.68); --rule: rgba(239,235,227,.28);
+  --field-a: rgb(62,66,72); --field-b: rgb(38,41,46);
+  --field-lamp: rgb(184,144,77); --field-warn: rgb(217,133,78); --field-alert: rgb(178,40,32);
+  --hair: 2px; --face: Archivo, 'Helvetica Neue', Arial, sans-serif;
+  --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3.5 12.5l5.5 5.5L20.5 6' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='square'/%3E%3C/svg%3E");
+  /* style.css's tokens, mapped so anything not restyled below still lands in this world. */
+  --page: var(--ink); --panel: var(--field-b); --raised: var(--field-b); --raised-2: var(--field-a); --line: var(--rule);
+  --text: var(--paper); --muted: var(--paper-2); --warm: var(--field-lamp); --warm-ink: var(--ink); --warm-rgb: 184,144,77;
+  --accent: var(--paper); --accent-ink: var(--ink); --warn: var(--field-warn); --alert: var(--field-alert);
+  --warn-ground: var(--field-warn); --error-ground: var(--field-alert); --error-text: var(--paper); --toast-ground: var(--paper);
+  --text-font: var(--face); --num-font: var(--face); --gold: var(--field-lamp);
+}
+html[data-theme="afterglow"] *, html[data-theme="afterglow"] *::before, html[data-theme="afterglow"] *::after {
+  border-radius: 0 !important; box-shadow: none !important; filter: none !important; }
+html[data-theme="afterglow"] ::selection { background: var(--paper); color: var(--ink); }
+
+/* The tick: a drawn path masked in the text colour, before the label of whatever is chosen. */
+html[data-theme="afterglow"] .seg.selected::before, html[data-theme="afterglow"] .tile.on .state::before,
+html[data-theme="afterglow"] .row.on .name::before {
+  content: ''; display: inline-block; flex: none; width: 26px; height: 26px; margin-right: 12px; vertical-align: -3px;
+  background: currentColor; -webkit-mask: var(--tick) center / contain no-repeat; }
+
+/* Header: the title and the clock as poster headlines, a hairline under them. */
+html[data-theme="afterglow"] .top { align-items: flex-end; padding-bottom: 22px; border-bottom: var(--hair) solid var(--rule); }
+html[data-theme="afterglow"] #house h1 { font-size: 97px; line-height: .86; font-weight: 820; font-stretch: 80%; letter-spacing: -.02em; }
+html[data-theme="afterglow"] #date { margin-top: 16px; font-size: 28px; font-weight: 500; letter-spacing: .01em; color: var(--paper-2); }
+html[data-theme="afterglow"] .next { margin-top: 4px; font-size: 28px; font-weight: 500; letter-spacing: .01em; color: var(--paper-2); }
+html[data-theme="afterglow"] .next .ask { font-weight: 700; color: var(--paper); }
+html[data-theme="afterglow"] #clock { font: 820 97px/.86 var(--face); font-stretch: 80%; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+html[data-theme="afterglow"] .glance > #clock { margin-left: 40px; }
+html[data-theme="afterglow"] .glance .chip { min-height: 64px; padding: 0 24px 0 20px; background: var(--field-b); font-size: 28px; font-weight: 700; }
+html[data-theme="afterglow"] .chip .disc { width: 34px; height: 34px; padding: 0; background: none; color: inherit; }
+html[data-theme="afterglow"] .chip.open { background: var(--field-warn); color: var(--ink); }
+html[data-theme="afterglow"] .chip.open .disc { color: inherit; }
+html[data-theme="afterglow"] #chips > * + * { margin-left: 24px; }
+html[data-theme="afterglow"] .glance > * + * { margin-left: 24px; }
+
+html[data-theme="afterglow"] #banner { padding: 14px 24px; border: 0; background: var(--paper); color: var(--ink); font-size: 28px; font-weight: 700; }
+
+/* Two halves of the grid: columns 1–6 and 7–12. */
+html[data-theme="afterglow"] .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 24px; }
+html[data-theme="afterglow"] #house h2 { margin-bottom: 20px; padding-bottom: 12px; border-bottom: var(--hair) solid var(--rule);
+  font-size: 26px; line-height: 1.15; font-weight: 800; letter-spacing: .02em; color: var(--paper-2); }
+html[data-theme="afterglow"] .sub { font-size: 28px; font-weight: 500; color: var(--paper-2); }
+
+/* Icons stand bare in the text colour; the disc is a House shape, not a poster one. */
+html[data-theme="afterglow"] .disc { width: 44px; height: 44px; padding: 0; background: none; color: inherit; }
+html[data-theme="afterglow"] .ico.warm { color: inherit; }
+
+/* Lights: flat fields, the name top left in the title voice, the state at the foot, the icon beside it. A lit room is
+   the lamp field with ink text, and its state is ticked, so it still reads as on while focus has it. */
+html[data-theme="afterglow"] .rooms { gap: 24px; }
+html[data-theme="afterglow"] .tile { display: flex; flex-direction: column; align-items: stretch; justify-content: space-between;
+  overflow: hidden; padding: 20px 28px 20px; background: var(--field-b); }
+html[data-theme="afterglow"] .tile .disc { position: absolute; right: 24px; bottom: 20px; width: 40px; height: 40px; }
+html[data-theme="afterglow"] .tile .name { align-self: auto; overflow: hidden; max-height: 2.04em; font-size: 40px; line-height: 1.02; font-weight: 750; font-stretch: 88%; }
+html[data-theme="afterglow"] .tile .state { align-self: auto; display: flex; align-items: center; min-width: 0; margin-top: 6px; padding-right: 56px;
+  white-space: nowrap; font-size: 28px; font-weight: 500; color: var(--paper-2); }
+html[data-theme="afterglow"] .tile.on { background: var(--field-lamp); color: var(--ink); }
+html[data-theme="afterglow"] .tile.on .disc { background: none; color: inherit; }
+html[data-theme="afterglow"] .tile.on .state { font-weight: 700; color: inherit; }
+
+html[data-theme="afterglow"] .side { row-gap: 40px; }
+html[data-theme="afterglow"] .side section { padding: 0; background: none; }
+html[data-theme="afterglow"] #house .side h2 { margin-bottom: 20px; }
+html[data-theme="afterglow"] .tv .head { margin-bottom: 20px; padding-bottom: 12px; border-bottom: var(--hair) solid var(--rule); }
+html[data-theme="afterglow"] #house .tv .head h2 { margin: 0; padding: 0; border: 0; }
+html[data-theme="afterglow"] #tv-line { font-size: 26px; font-weight: 500; letter-spacing: .01em; }
+
+/* Sources: text only, side by side; the one on screen is a lighter field with the tick. */
+html[data-theme="afterglow"] .segments { column-gap: 24px; padding: 0; background: none; }
+html[data-theme="afterglow"] .seg { justify-content: flex-start; height: 80px; padding: 0 24px; background: var(--field-b); font-size: 30px; font-weight: 700; }
+html[data-theme="afterglow"] .seg > .ico { display: none; }
+html[data-theme="afterglow"] .seg.selected { background: var(--field-a); color: var(--paper); }
+
+/* Buttons are rectangles with a hairline on top, label left, as on Afterglow's transport band. */
+html[data-theme="afterglow"] .pill { height: 84px; padding: 0 28px 0 20px; border-top: var(--hair) solid var(--rule); background: none; font-size: 30px; font-weight: 700; }
+html[data-theme="afterglow"] .pill > .ico { width: 36px; height: 36px; margin-right: 16px; }
+html[data-theme="afterglow"] .pill.wide { margin-top: 24px; justify-content: flex-start; }
+html[data-theme="afterglow"] .round { width: 104px; height: 84px; border-top: var(--hair) solid var(--rule); background: none; }
+html[data-theme="afterglow"] .round .ico { width: 40px; height: 40px; }
+html[data-theme="afterglow"] .grow { justify-content: flex-start; }
+html[data-theme="afterglow"] .transport { margin-bottom: 24px; }
+html[data-theme="afterglow"] .transport > * + * { margin-left: 24px; }
+
+html[data-theme="afterglow"] .music .now { margin: 0 0 20px; min-height: 0; }
+html[data-theme="afterglow"] .track { padding-bottom: 4px; font-size: 54px; line-height: 1.02; font-weight: 750; font-stretch: 88%; }
+html[data-theme="afterglow"] #artist { margin-top: 8px; }
+
+/* The switch row becomes an option row: ticked when on, its state on the right. */
+html[data-theme="afterglow"] .row { width: 100%; min-height: 84px; padding: 10px 20px 10px 0; border-top: var(--hair) solid var(--rule); background: none; }
+html[data-theme="afterglow"] .row .disc { width: 40px; height: 40px; margin-left: 20px; }
+html[data-theme="afterglow"] .row.on .disc { background: none; color: inherit; }
+html[data-theme="afterglow"] .row .text { flex-direction: row; align-items: center; justify-content: space-between; }
+html[data-theme="afterglow"] .row .text > * + * { margin-top: 0; margin-left: 24px; }
+html[data-theme="afterglow"] .row .name { display: flex; align-items: center; min-width: 0; font-size: 30px; font-weight: 700; white-space: nowrap; }
+html[data-theme="afterglow"] .row .state { flex: none; font-size: 26px; font-weight: 500; color: var(--paper-2); }
+html[data-theme="afterglow"] .switch { display: none; }
+
+/* Footer: one ruled strip, like Afterglow's nav. */
+html[data-theme="afterglow"] .bottom { border-top: var(--hair) solid var(--rule); }
+html[data-theme="afterglow"] .bottom .pill { border-top: 0; }
+html[data-theme="afterglow"] .bottom > * + * { margin-left: 8px; }
+html[data-theme="afterglow"] #people { margin-left: 24px; }
+html[data-theme="afterglow"] #people > * + * { margin-left: 32px; }
+html[data-theme="afterglow"] .chip.person { min-height: 84px; padding: 0; background: none; font-size: 30px; }
+html[data-theme="afterglow"] .person b { font-weight: 700; }
+html[data-theme="afterglow"] .person .initial { width: 52px; height: 52px; background: var(--field-a); color: var(--paper); font-size: 28px; font-weight: 820; }
+html[data-theme="afterglow"] .person.out .initial { border: var(--hair) solid var(--rule); background: none; color: var(--paper-2); }
+html[data-theme="afterglow"] .person .where { font-weight: 500; color: var(--paper-2); }
+
+/* Focus inverts the whole control: paper field, ink text. No ring, no lift, no glow. */
+html[data-theme="afterglow"] .tile, html[data-theme="afterglow"] .seg, html[data-theme="afterglow"] .pill,
+html[data-theme="afterglow"] .round, html[data-theme="afterglow"] .row { transition: background-color .12s ease-out, color .12s ease-out; }
+html[data-theme="afterglow"] .tile:focus, html[data-theme="afterglow"] .seg:focus, html[data-theme="afterglow"] .pill:focus,
+html[data-theme="afterglow"] .round:focus, html[data-theme="afterglow"] .row:focus { background: var(--paper); color: var(--ink); transform: none; }
+html[data-theme="afterglow"] :focus .state, html[data-theme="afterglow"] :focus .sub { color: inherit; }
+html[data-theme="afterglow"] .armed, html[data-theme="afterglow"] .armed:focus { background: var(--field-alert) !important; color: var(--paper); }
+
+/* Notices: the toast is paper on ink's ground, an error the alert field, the closing warning an ink chip. */
+html[data-theme="afterglow"] #toast { padding: 18px 28px; border: 0; background: var(--paper); color: var(--ink); font-size: 30px; font-weight: 700; }
+html[data-theme="afterglow"] #toast.error { border: 0; background: var(--field-alert); color: var(--paper); }
+html[data-theme="afterglow"] #idle { padding: 14px 24px; border: var(--hair) solid var(--rule); background: var(--ink); color: var(--paper); font-size: 28px; font-weight: 600; }
+
+/* The week recap: the same poster. Flat ink ground, hairline progress, headline numbers in the condensed heavy voice,
+   fields for the tiles, no watermark icon, no gradient lettering. The people keep their colours. */
+html[data-theme="afterglow"] #recap { background: var(--ink); }
+html[data-theme="afterglow"] .r-bar { height: 4px; background: var(--rule); }
+html[data-theme="afterglow"] .r-bar > span { background: var(--paper); }
+html[data-theme="afterglow"] .r-top { font-size: 28px; font-weight: 500; letter-spacing: .01em; color: var(--paper-2); }
+html[data-theme="afterglow"] .r-mark { display: none; }
+html[data-theme="afterglow"] .r-label { font-weight: 750; font-stretch: 88%; }
+html[data-theme="afterglow"] .r-label .disc { width: 64px; height: 64px; padding: 0; background: none; color: inherit; }
+html[data-theme="afterglow"] .r-label .disc + span { margin-left: 20px; }
+html[data-theme="afterglow"] .disc.r-badge-disc { width: 96px; height: 96px; padding: 20px; background: var(--field-lamp); color: var(--ink); }
+html[data-theme="afterglow"] .r-big, html[data-theme="afterglow"] .r-side-n, html[data-theme="afterglow"] .r-tile-n,
+html[data-theme="afterglow"] .r-delta, html[data-theme="afterglow"] .r-option, html[data-theme="afterglow"] .r-day-temp,
+html[data-theme="afterglow"] .r-tile-pair b { font-weight: 820; font-stretch: 80%; letter-spacing: -.02em; }
+html[data-theme="afterglow"] .r-title, html[data-theme="afterglow"] .r-hero-text, html[data-theme="afterglow"] .r-question,
+html[data-theme="afterglow"] .r-winner, html[data-theme="afterglow"] .r-badge, html[data-theme="afterglow"] .r-quote {
+  font-weight: 820; font-stretch: 80%; letter-spacing: -.02em; }
+html[data-theme="afterglow"] .r-who, html[data-theme="afterglow"] .r-chip-who, html[data-theme="afterglow"] .r-tile-who { font-weight: 750; font-stretch: 88%; }
+html[data-theme="afterglow"] .r-unit, html[data-theme="afterglow"] .r-tile-unit { font-weight: 700; color: var(--paper-2); }
+html[data-theme="afterglow"] .r-sub, html[data-theme="afterglow"] .r-pair-day, html[data-theme="afterglow"] .r-tile-label,
+html[data-theme="afterglow"] .r-chip-label, html[data-theme="afterglow"] .r-day-name, html[data-theme="afterglow"] .r-meal-day,
+html[data-theme="afterglow"] .r-delta-what { font-weight: 500; color: var(--paper-2); }
+html[data-theme="afterglow"] .r-badge, html[data-theme="afterglow"] .r-draw { background: none; -webkit-background-clip: border-box; color: var(--paper); }
+html[data-theme="afterglow"] .r-option { background: var(--field-b); }
+html[data-theme="afterglow"] .r-revealed .r-option.r-correct { background: var(--paper); color: var(--ink); }
+html[data-theme="afterglow"] .r-tile, html[data-theme="afterglow"] .r-day, html[data-theme="afterglow"] .r-chip,
+html[data-theme="afterglow"] .r-map, html[data-theme="afterglow"] .r-plate { background: var(--field-b); }
+html[data-theme="afterglow"] .r-pbar.r-none, html[data-theme="afterglow"] .r-spark .r-none { background: var(--field-a); }
+html[data-theme="afterglow"] .r-tick { border-color: var(--field-a); }
+html[data-theme="afterglow"] .r-spark span { background: var(--rule); }
+html[data-theme="afterglow"] .r-spark .r-now { background: var(--paper); }
+html[data-theme="afterglow"] .r-quote-mark { color: var(--paper); }
+html[data-theme="afterglow"] .r-belt { background: var(--field-lamp); }
+html[data-theme="afterglow"] .r-belt i { border: 3px solid var(--ink); background: var(--field-lamp); color: var(--ink); }
+html[data-theme="afterglow"] .r-crown { color: var(--field-lamp); }
+html[data-theme="afterglow"] .r-drum i { background: var(--paper-2); }

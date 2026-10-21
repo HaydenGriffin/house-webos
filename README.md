@@ -8,16 +8,19 @@ A Home Assistant panel for LG TVs, built to be read from the sofa and driven wit
 the TV's sources, what's playing and who's home, and every Sunday it can play a Wrapped-style recap of the week at home.
 
 **[Try the demo in a browser →](https://haydengriffin.github.io/house-webos/)** It runs on made-up data. Use the
-arrow keys and Enter; add `&recap` to the URL for the week recap.
+arrow keys and Enter; add `&recap` to the URL for the week recap, or `&theme=afterglow` for the Afterglow theme.
 
 ## What it does
 
 - **One screen, the whole house.** Light tiles with brightness, any number of action tiles (scripts, scenes, any
   Home Assistant action), TV sources with the current one lit, the speakers with play, skip and a playlist button, and
-  a chip for each person with the room they're in.
+  a chip for each person with the room they're in and anything else worth knowing ("At work", "Gym today").
 - **Made for a remote.** Arrows move by on-screen geometry, so the nearest control in that direction always gets focus.
-  OK presses, Back closes, the Magic Remote pointer works, and it closes itself after a minute idle. A door left open
-  and the next calendar event show at the top.
+  OK presses, CH + and CH − brighten and dim the light in focus, Back closes, the Magic Remote pointer works, and it
+  closes itself after a minute idle. A door left open, the next calendar event and a status line ("Heating to 20° ·
+  1 parcel coming") show at the top.
+- **Guest-aware.** Point `guests` at an `input_boolean` and anything marked `private` (sleep, the gym, what someone's
+  reading) stays off the screen while it's on.
 - **Live.** It holds one websocket to Home Assistant and subscribes to only the entities it shows, using the compressed
   `subscribe_entities` stream, so a 2021 TV keeps up.
 - **Your week at home.** Full-screen cards with count-ups, paired bar charts, a quiz, a guess-the-week reveal and a
@@ -34,7 +37,7 @@ arrow keys and Enter; add `&recap` to the URL for the week recap.
 - A Home Assistant user for the TV. Make it non-admin, ideally "local access only", and create a long-lived access
   token for it from its profile page.
 
-> **Status:** an earlier private build of this app runs every day on a rooted 2021 C1. Versions 1.1 and 1.2 have only
+> **Status:** an earlier private build of this app runs every day on a rooted 2021 C1. Versions 1.1 to 1.3 have only
 > run in the browser demo and the tests so far. The public package, `ares-install`, the Developer Mode SSH push and
 > launching by `io.github.haydengriffin.house` haven't been tried on a TV yet. Reports either way are very welcome.
 
@@ -48,7 +51,7 @@ config goes onto the TV separately, next to the installed app.
    ```bash
    python3 tools/package.py
    ares-setup-device            # once, to add the TV
-   ares-install -d <tv> dist/io.github.haydengriffin.house_1.2.0_all.ipk
+   ares-install -d <tv> dist/io.github.haydengriffin.house_1.3.0_all.ipk
    ```
 
 2. Copy `config.example.json` to `config.json` and fill in the websocket URL, the token and your entities. Everything
@@ -79,24 +82,45 @@ Developer Mode sessions run out unless they're extended; the Developer Mode app 
 | `url`, `token` | `ws://<home assistant>:8123/api/websocket` and the TV user's token. |
 | `title`, `locale`, `idle_seconds` | The heading, the date and time format (e.g. `en-GB`), and the auto-close delay. |
 | `demo` | `true` runs on the demo states with no Home Assistant, as `?demo` in the URL does. |
-| `lights` | `[{ name, entity, icon?, on?, off? }]`. A press toggles the entity. `on` and `off` replace the state text ("On · 60%", "Off"). |
+| `theme` | Leave it out for the default look. `"afterglow"` sets House in the poster style of the Afterglow TV music app; see [Themes](#themes). |
+| `lights` | `[{ name, entity, icon?, on?, off?, action?, step? }]`. A press toggles the entity, or runs `action` instead (e.g. a script that turns the room on at Adaptive Lighting's level). `on` and `off` replace the state text ("On · 60%", "Off"). CH + and CH − on a light in focus step its brightness by `step` percent (default 10); CH − leaves a light that's off alone. |
 | `tiles` | `[{ name, sub?, icon?, toast?, entity?, on?, off?, action?, confirm?, visible? }]`. `action` is `{ service: "domain.service", data?, target? }`; with only `entity`, a press toggles it. `sub` shows while the entity is off; `on` and `off` work as on lights. `confirm: true` (or the armed label) makes it a two-press action: the first press arms it red for 5 s. `visible: { entity, states }` shows it only while the entity is in one of those states. |
 | `door`, `door_name` | A `binary_sensor`; a chip appears while it's on, with how long for. `door_name` is the chip's text (default "Door open"). |
-| `glance` | Header chips: `[{ entity, text?, icon?, attribute?, hide?, hours?, within_days? }]`. `text` takes `{value}`, `{attr.x}` and `{day}` (the value read as a date: today, tomorrow or the weekday), e.g. `"Tonight · {value}"`. A chip shows only while there's something to say. |
+| `glance` | Header chips: `[{ entity, text?, icon?, attribute?, hide?, hours?, within_days?, private? }]`. `text` takes `{value}`, `{attr.x}` and `{day}` (the value read as a date: today, tomorrow or the weekday), e.g. `"Tonight · {value}"`. A chip shows only while there's something to say. |
+| `glance_max` | How many chips fit beside the clock (default 3). Past that, the first ones stay and the rest take turns in the last place, five seconds each. |
+| `status` | One line under the title, after the next event: `[{ entity, text?, ... }]` in the same shape as `glance`, joined with " · ", e.g. `"Heating to 20° · 1 parcel coming"`. Parts with nothing to say drop out. |
+| `guests`, `private` | `guests: { entity, states? }` is in while the entity is in one of `states` (default `["on"]`). Meanwhile anything with `private: true` stays hidden: glance chips, status parts, people's notes, tiles, quick and footer actions, and the recap (`recap.private`). |
 | `quick` | Actions that lead the lights grid and take the first focus, e.g. Pause and Lights up while something plays. Same shape as `tiles`. |
 | `footer` | Pill buttons after This week, same shape as `tiles`, e.g. Everything off. |
 | `calendars` | Calendar entities for the "Next" line. |
 | `tv` | `{ title?, source_sensor?, sources: [{ name, icon?, action }], wide? }`. The source whose `name` matches the sensor's state is lit; the sensor's `line` attribute, if any, shows beside the title. |
 | `music` | `{ title?, player, extra?, toggle? }`. `extra` is a pill button with an `action`; `toggle` is a switch row, `{ name, entity, icon?, on?, off?, action_on?, action_off? }`, for an `input_boolean`: `on`/`off` label its states and `action_on`/`action_off` run instead of toggling it. |
-| `people` | `[{ name, person, room? }]`. `room` is any sensor whose state is the room name. |
+| `people` | `[{ name, person, room?, notes? }]`. `room` is any sensor whose state is the room name. `notes` are `glance`-shaped lines added after the room, e.g. `{ "entity": "sensor.gym_sam", "attribute": "trained_today", "text": "Gym today", "hide": ["false"], "private": true }`. |
 | `recap` | `{ stats, attribute?, cue?, done?, idle_minutes?, ask?, tv?, vacuum_map? }`. `done` is an action called with `reason` when a recap ends that the cue started, or that began while the cue script was running. `tv` is the TV's `media_player`, whose history gives the TV hours when the stats have none. Stats up to six days old that nobody has played on this TV are offered on the home screen ("Your week at home is ready") unless `ask` is false. See [`docs/recap-stats.md`](docs/recap-stats.md). |
 
 Icons are [Material Design Icons](https://pictogrammers.com/library/mdi/) names in camelCase, from the set in
 [`app/icons.js`](app/icons.js); add any path you need there.
 
+## Themes
+
+<img src="docs/images/afterglow.png" alt="House in the Afterglow theme: ink ground, paper type, lit rooms as lamp-coloured fields" width="100%">
+
+The default look is House's own and needs nothing set. `"theme": "afterglow"` lays one more stylesheet over it,
+[`app/themes/afterglow/afterglow.css`](app/themes/afterglow/afterglow.css), so House matches
+Afterglow, a poster-style music app for LG TVs, when both run on one TV: an ink ground and warm paper type in one
+heavy condensed family (Archivo), 2px hairlines, square corners, no shadows or gradients, and one way to show state
+(focus turns a control paper with ink text, the chosen source and anything on carry a drawn tick, disabled is 45%).
+Afterglow takes its colour fields from the album art; House has none, so its fields are two neutrals, and its state
+colours stay only as flat fields that carry a state: a lit room is a lamp-coloured field, an open door a warn field and
+an armed action a red one. The week recap follows it, keeping the two people's colours.
+
+Nothing changes for the default look: `app/theme.js` does nothing without a theme, every rule in the theme's
+stylesheet is scoped to `html[data-theme="afterglow"]`, and the stylesheet and its fonts (about 180 KB) are fetched
+only when the theme is chosen. An unknown theme name keeps the default.
+
 ## Development
 
-Open `app/index.html?demo` in Chrome. The layout is fixed at 1920×1080, the TV's resolution; in a smaller window the
+Open `app/index.html?demo` in Chrome (`?demo&theme=afterglow` for the Afterglow theme). The layout is fixed at 1920×1080, the TV's resolution; in a smaller window the
 demo scales to fit. `app/demo.js` holds the demo home and the full recap stats. The README images are rendered from the
 demo by [`tools/showcase`](tools/showcase). To try it against your own Home Assistant, write the config into the
 app folder with `python3 tools/push_config.py config.json --out app/config.js` (git ignores it, and the package leaves it
@@ -109,4 +133,5 @@ House for webOS is free and open source. If it made your evenings on the sofa be
 
 ## Licence
 
-[MIT](LICENSE). Bundled icons are Apache 2.0 and the fonts are SIL OFL 1.1; see [NOTICE](NOTICE).
+[MIT](LICENSE). Bundled icons are Apache 2.0 and the fonts (including Archivo in the Afterglow theme) are SIL OFL 1.1;
+see [NOTICE](NOTICE).

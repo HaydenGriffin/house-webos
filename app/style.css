@@ -28,7 +28,9 @@ svg { display: block; width: 100%; height: 100%; fill: currentColor; }
 #house > * + * { margin-top: 24px; }
 #house[aria-busy='true'] .layout, #house[aria-busy='true'] .bottom #idle { opacity: .55; }
 
-.top { display: flex; align-items: center; justify-content: space-between; }
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+/* The next event and the status line run the full width under the title and the clock, clear of the chips. */
+.top > .next { flex: 0 0 100%; }
 h1 { font-size: 56px; line-height: 1; }
 #date, .next { margin-top: 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 400; font-size: 30px; color: var(--muted); }
 .next { margin-top: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -47,7 +49,7 @@ h1 { font-size: 56px; line-height: 1; }
 .chip.open .disc { background: transparent; box-shadow: inset 0 0 0 3px var(--warn); color: var(--warn); }
 .glance .chip { max-width: 520px; }
 .glance .chip > span:last-child { overflow: hidden; text-overflow: ellipsis; }
-.next.ask { color: var(--accent); }
+.next .ask { color: var(--accent); }
 
 #chips { display: flex; }
 #chips > * + * { margin-left: 20px; }
@@ -112,6 +114,10 @@ h2 { font-size: 36px; line-height: 1.15; margin-bottom: 16px; }
 
 .bottom { display: flex; align-items: center; }
 .bottom .pill, .bottom .chip { flex: none; white-space: nowrap; }
+/* People give way first when a note makes the footer too long. */
+#people { flex: 0 1 auto; min-width: 0; }
+.bottom .person { flex: 0 1 auto; min-width: 0; }
+.person > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* The two-tap arm for risky actions: the first press arms it red for 5 s, the second runs it. */
 .armed, .armed:focus { background: var(--alert) !important; color: #2b0a07; filter: none !important; }
 .armed .ico.warm { color: inherit; }

@@ -8,22 +8,24 @@
   var DEMO = window.HOUSE_DEMO || null;
   var useDemo = !!DEMO && (/[?&]demo\b/.test(location.search) || (window.HOUSE_CONFIG || {}).demo);
   var CONFIG = useDemo ? DEMO.config : window.HOUSE_CONFIG || {};
-  var ICONS = window.HOUSE_ICONS || {};
+  var ICONS = window.HOUSE_ICONS || {}, G = window.HouseGlance;
   var LOCALE = CONFIG.locale || undefined;
   var IDLE_MS = (CONFIG.idle_seconds || 60) * 1000, WARN_MS = 10000;
   var LIGHTS = CONFIG.lights || [], TILES = CONFIG.tiles || [], PEOPLE = CONFIG.people || [];
   var TV = CONFIG.tv || null, MUSIC = CONFIG.music || null, RECAP = CONFIG.recap || null;
   var CALENDARS = CONFIG.calendars || [];
   var GLANCE = CONFIG.glance || [], QUICK = CONFIG.quick || [], FOOTER = CONFIG.footer || [];
-  var ARM_MS = 5000;
+  var STATUS = CONFIG.status || [], GLANCE_MAX = CONFIG.glance_max || 3, GUESTS = CONFIG.guests || null;
+  var ARM_MS = 5000, TURN_S = 5;
 
   var states = {}, sock = null, nextId = 1, pending = {}, connected = false, everConnected = false, retry = 0;
   var lastPress = Date.now(), closing = false, toastTimer = 0, nextEvent = null, armed = null;
-  var recap = null, recapStarting = false, cueSeen = null;
+  var recap = null, recapStarting = false, cueSeen = null, glanceTurn = 0;
 
   function $(id) { return document.getElementById(id); }
   function all(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
   function st(id) { return states[id] || { s: 'unavailable', a: {} }; }
+  function look(id) { return states[id]; }
   function attr(id, key) { var a = st(id).a || {}; return a[key]; }
   function dead(id) { var s = st(id).s; return s === 'unavailable' || s === 'unknown'; }
   function esc(s) {
@@ -83,7 +85,6 @@
       return '<p class="chip" data-glance="' + n + '" hidden><span class="disc" data-icon="' + esc(g.icon || 'information') + '"></span><span></span></p>';
     }).join('');
     $('footer-actions').innerHTML = FOOTER.map(function (f) { return pillHtml('', addAction(f), f); }).join('');
-    $('week').hidden = !(RECAP && RECAP.stats);
     all('[data-icon]').forEach(function (el) { setIcon(el, el.getAttribute('data-icon')); });
     all('button').forEach(function (b) { b.addEventListener('click', function () { lastPress = Date.now(); press(b); }); });
   }
@@ -94,9 +95,14 @@
     if (TV && TV.source_sensor) list.push(TV.source_sensor);
     if (MUSIC && MUSIC.player) list.push(MUSIC.player);
     if (MUSIC && MUSIC.toggle && MUSIC.toggle.entity) list.push(MUSIC.toggle.entity);
-    PEOPLE.forEach(function (p) { if (p.person) list.push(p.person); if (p.room) list.push(p.room); });
+    PEOPLE.forEach(function (p) {
+      if (p.person) list.push(p.person);
+      if (p.room) list.push(p.room);
+      (p.notes || []).forEach(function (g) { list.push(g.entity); });
+    });
     if (RECAP) ['stats', 'cue', 'vacuum_map'].forEach(function (k) { if (RECAP[k]) list.push(RECAP[k]); });
-    GLANCE.forEach(function (g) { list.push(g.entity); });
+    GLANCE.concat(STATUS).forEach(function (g) { list.push(g.entity); });
+    if (GUESTS) list.push(GUESTS.entity);
     QUICK.concat(FOOTER, TILES).forEach(function (t) { if (t.entity) list.push(t.entity); if (t.visible) list.push(t.visible.entity); });
     return list.filter(function (id, n) { return id && list.indexOf(id) === n; });
   }
@@ -200,6 +206,10 @@
       var s = states[id]; if (!s) return;
       if (service === 'toggle') s.s = s.s === 'on' ? 'off' : 'on';
       if (service === 'media_play_pause') s.s = s.s === 'playing' ? 'paused' : 'playing';
+      if (service === 'turn_on' && data && data.brightness_step_pct) {
+        var bri = Math.max(0, Math.min(255, (s.s === 'on' ? s.a.brightness || 255 : 0) + Math.round(data.brightness_step_pct * 2.55)));
+        s.s = bri ? 'on' : 'off'; s.a.brightness = bri || undefined;
+      }
       if (/light\./.test(id) && s.s === 'on' && !s.a.brightness) s.a.brightness = 191;
     });
     if (domain === 'script' && TV && TV.source_sensor) {
@@ -227,11 +237,7 @@
       nextEvent = best; render();
     }, function () { nextEvent = null; render(); });
   }
-  function dayWord(d) {
-    var today = new Date(); today.setHours(0, 0, 0, 0);
-    var diff = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - today) / 86400000);
-    return diff <= 0 ? 'today' : diff === 1 ? 'tomorrow' : d.toLocaleDateString(LOCALE, { weekday: 'long' });
-  }
+  function dayWord(d) { return G.dayWord(d, new Date(), LOCALE); }
   function sentence(t) { t = String(t); return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase(); }
   function hhmm(d) { return d.toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' }); }
 
@@ -269,21 +275,27 @@
       var home = ps === 'home', where = home ? (!p.room || dead(p.room) || /away|not_home|unknown/i.test(room) ? 'Home' : sentence(room))
         : ps === 'not_home' ? 'Out' : dead(p.person) ? '–' : ps;
       chip.classList.toggle('out', !home);
-      chip.querySelector('.where').textContent = where;
+      chip.querySelector('.where').textContent = [where].concat(lines(p.notes)).join(' · ');
     });
 
     $('date').textContent = new Date().toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });
-    var next = $('next'), ready = weekReady();
-    next.hidden = !nextEvent && !ready;
-    next.classList.toggle('ask', !!ready);
-    if (ready) next.textContent = 'Your week at home is ready · This week, below';
-    else if (nextEvent) next.textContent = 'Next ' + sentence(dayWord(nextEvent.start)) + (nextEvent.allDay ? '' : ' ' + hhmm(nextEvent.start)) + ' · ' + nextEvent.title;
+    // One line under the title and the clock: the next event (or the week, when it's ready), then the status line.
+    var ready = weekReady(), status = lines(STATUS).join(' · ');
+    var event = ready ? 'Your week at home is ready · This week, below'
+      : nextEvent ? 'Next ' + sentence(dayWord(nextEvent.start)) + (nextEvent.allDay ? '' : ' ' + hhmm(nextEvent.start)) + ' · ' + nextEvent.title : '';
+    $('next').hidden = !event && !status;
+    $('event').textContent = event;
+    $('event').classList.toggle('ask', !!ready);
+    $('status').textContent = event && status ? ' · ' + status : status;
 
+    // Only glance_max chips fit beside the clock; past that the last place takes turns.
+    var said = GLANCE.map(glanceText), placed = G.rotate(said, GLANCE_MAX, glanceTurn);
     GLANCE.forEach(function (g, n) {
-      var chip = document.querySelector('[data-glance="' + n + '"]'), text = glanceText(g);
-      chip.hidden = !text;
-      if (text) chip.lastChild.textContent = text;
+      var chip = document.querySelector('[data-glance="' + n + '"]');
+      chip.hidden = placed.indexOf(n) < 0;
+      if (!chip.hidden) chip.lastChild.textContent = said[n];
     });
+    $('week').hidden = !(RECAP && RECAP.stats) || hiddenFromGuests(RECAP);
     all('#footer-actions [data-tile], .tile[data-tile]').forEach(function (b) {
       b.hidden = !visibleNow(actions[+b.getAttribute('data-tile')]);
     });
@@ -316,29 +328,14 @@
   /* visible: { entity, states: [...] } shows an action only while the entity is in one of those states. */
   function visibleNow(item) {
     var v = item && item.visible;
+    if (hiddenFromGuests(item)) return false;
     return !v || !v.entity || (v.states || ['on']).indexOf(st(v.entity).s) >= 0;
   }
-  /* A glance chip: { entity, attribute?, text: 'Tonight · {value}', icon?, hide?: [values], hours?: [from, to],
-     within_days?: n }. {value} is the state (or the attribute), {attr.x} any attribute, {day} the value read as a date
-     (today, tomorrow or the weekday). Empty, unavailable and hidden values show no chip. */
-  function glanceText(g) {
-    if (!g.entity || dead(g.entity)) return '';
-    var value = g.attribute ? attr(g.entity, g.attribute) : st(g.entity).s;
-    if (value === undefined || value === null || value === '' || (g.hide || []).indexOf(String(value)) >= 0) return '';
-    var h = new Date().getHours();
-    if (g.hours && !(h >= g.hours[0] && h < g.hours[1])) return '';
-    var day = '';
-    if (/^\d{4}-\d{2}-\d{2}/.test(String(value))) {
-      var d = new Date(String(value).slice(0, 10) + 'T00:00:00'), today = new Date(); today.setHours(0, 0, 0, 0);
-      var diff = Math.round((d - today) / 86400000);
-      if (g.within_days !== undefined && (diff < 0 || diff > g.within_days)) return '';
-      day = dayWord(d);
-    }
-    return String(g.text || '{value}').replace(/\{(value|day|attr\.([a-z0-9_]+))\}/g, function (m, k, a) {
-      var v = k === 'value' ? value : k === 'day' ? day : attr(g.entity, a);
-      return v === undefined || v === null ? '' : String(v);
-    }).replace(/\s+/g, ' ').trim();
-  }
+  /* private: true keeps an item off screen while guests are in (see glance.js). */
+  function hiddenFromGuests(item) { return !!(item && item.private) && G.guestsIn(GUESTS, look); }
+  /* A glance chip, a status part or a person's note; the template rules are in glance.js. */
+  function glanceText(g) { return hiddenFromGuests(g) ? '' : G.text(g, look, new Date(), LOCALE); }
+  function lines(list) { return (list || []).map(glanceText).filter(Boolean); }
   function since(lc) {
     if (!lc) return '';
     var min = Math.floor((Date.now() / 1000 - lc) / 60);
@@ -476,7 +473,7 @@
     if (b.disabled || b.hasAttribute('aria-busy')) return;
     if (armed && armed !== b) disarm();
     var job = null, done = '';
-    if (b.hasAttribute('data-light')) job = call('homeassistant.toggle', {}, { entity_id: LIGHTS[+b.getAttribute('data-light')].entity });
+    if (b.hasAttribute('data-light')) job = run(LIGHTS[+b.getAttribute('data-light')]);
     else if (b.hasAttribute('data-tile')) {
       var item = actions[+b.getAttribute('data-tile')];
       if (item.confirm && armed !== b) return arm(b, item);
@@ -493,6 +490,15 @@
     b.setAttribute('aria-busy', 'true');
     job.then(function () { if (done) toast(done); }, function (e) { toast(e.message, true); })
       .then(function () { b.removeAttribute('aria-busy'); render(); });
+  }
+
+  /* A light's step (default 10%) up or down; down on a light that's off does nothing, up turns it on at one step. */
+  function dim(b, dir) {
+    if (!b || !b.hasAttribute('data-light') || b.disabled) return;
+    var l = LIGHTS[+b.getAttribute('data-light')];
+    if (dir < 0 && st(l.entity).s !== 'on') return;
+    call('light.turn_on', { brightness_step_pct: dir * (l.step || 10) }, { entity_id: l.entity })
+      .then(render, function (e) { toast(e.message, true); });
   }
 
   /* The one confirm pattern for risky actions: the first press arms the button ("Tap again to …", red) for 5 s. */
@@ -515,7 +521,7 @@
   /* ---------- the week recap, asked for rather than sprung: fresh stats nobody has played yet ---------- */
   function statsId(stats) { return stats && stats.generated_at ? String(stats.generated_at) : ''; }
   function weekReady() {
-    if (!RECAP || !RECAP.stats || RECAP.ask === false || recap) return false;
+    if (!RECAP || !RECAP.stats || RECAP.ask === false || recap || hiddenFromGuests(RECAP)) return false;
     var stats = attr(RECAP.stats, RECAP.attribute || 'stats'), id = statsId(stats);
     if (!id || (Date.now() - new Date(id).getTime()) / 86400000 > 6) return false;
     try { return window.localStorage.getItem('house.recap.seen') !== id; } catch (e) { return false; }
@@ -568,6 +574,8 @@
     }
     if (e.keyCode === 461 || e.keyCode === 27 || e.keyCode === 8) { e.preventDefault(); return close(); }
     if (e.keyCode >= 37 && e.keyCode <= 40) { e.preventDefault(); return move(e.keyCode); }
+    // CH + and CH − (Page Up and Page Down in a browser) brighten and dim the light in focus.
+    if (e.keyCode === 33 || e.keyCode === 34) { e.preventDefault(); return dim(document.activeElement, e.keyCode === 33 ? 1 : -1); }
     if (e.keyCode === 13) {
       e.preventDefault();
       var a = document.activeElement;
@@ -610,7 +618,9 @@
     idle.hidden = !soon;
     if (soon) idle.textContent = 'Closing in ' + Math.max(0, Math.ceil(left / 1000)) + ' s · press any button to stay';
     if (!closing && left <= 0) close();
-    if (now.getSeconds() === 0 || (CONFIG.door && st(CONFIG.door).s === 'on')) render();
+    var turn = now.getSeconds() % TURN_S === 0;
+    if (turn) glanceTurn++;
+    if (now.getSeconds() === 0 || turn || (CONFIG.door && st(CONFIG.door).s === 'on')) render();
   }
 
   build();
