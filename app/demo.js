@@ -42,7 +42,8 @@
     guests: { entity: 'input_boolean.guests' },
     status: [
       { entity: 'sensor.heating', text: '{value}' },
-      { entity: 'sensor.parcels_today', text: '{value} parcel coming', hide: ['0'] },
+      { entity: 'sensor.parcels', attribute: 'items', filter: { today: true, status: ['expected', 'out_for_delivery'] },
+        text: '{value} parcel coming', hide: ['0'] },
     ],
     recap: { stats: 'sensor.week_stats' },
     glance: [
@@ -82,7 +83,11 @@
     'media_player.streamer': { s: 'playing' },
     'sensor.bins_next': { s: tomorrow(), a: { summary: 'Recycling' } },
     'sensor.heating': { s: 'Heating to 20°' },
-    'sensor.parcels_today': { s: '1' },
+    'sensor.parcels': { s: '3', a: { items: [
+      { name: 'Running shoes', today: true, status: 'out_for_delivery' },
+      { name: 'Coffee beans', today: true, status: 'delivered' },
+      { name: 'Picture frame', today: false, status: 'expected' },
+    ] } },
     'sensor.sam_gym': { s: 'ok', a: { trained_today: true } },
     'input_boolean.guests': { s: 'off' },
   };

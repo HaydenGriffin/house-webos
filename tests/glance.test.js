@@ -50,6 +50,29 @@ test('a date value reads as today, tomorrow or the weekday, and within_days limi
   assert.strictEqual(G.text({ entity: 'sensor.far', text: '{day}' }, look, at(8), 'en-GB'), 'Saturday');
 });
 
+test('a list counts its items, or those matching every filter key', () => {
+  const items = [
+    { today: true, status: 'expected' },
+    { today: true, status: 'out_for_delivery', collected: false },
+    { today: true, status: 'delivered', collected: true },
+    { today: false, status: 'expected' },
+    { today: true, status: 'expected', collected: true },
+  ];
+  const look = lookup({ 'sensor.parcels': { s: '5', a: { items } }, 'sensor.empty': { s: 'ok', a: { items: [] } } });
+  const g = { entity: 'sensor.parcels', attribute: 'items', text: 'Parcels today · {value}', hide: ['0'],
+              filter: { today: true, collected: [false, null], status: ['expected', 'out_for_delivery'] } };
+  assert.strictEqual(G.text(g, look, at(9)), 'Parcels today · 2');
+  assert.strictEqual(G.text({ entity: 'sensor.parcels', attribute: 'items' }, look, at(9)), '5');
+  assert.strictEqual(G.text({ entity: 'sensor.parcels', attribute: 'items', filter: { today: false } }, look, at(9)), '1');
+  assert.strictEqual(G.text({ entity: 'sensor.empty', attribute: 'items', hide: ['0'] }, look, at(9)), '');
+  assert.strictEqual(G.text({ entity: 'sensor.parcels', attribute: 'items', filter: { status: 'lost' }, hide: ['0'] }, look, at(9)), '');
+});
+
+test('a filter never matches items that are not objects', () => {
+  assert.strictEqual(G.count([1, 'a', null, { a: 1 }], { a: 1 }), 1);
+  assert.strictEqual(G.count([1, 'a', null], null), 3);
+});
+
 test('rotate: everything shows when it fits', () => {
   assert.deepStrictEqual(list(G.rotate(['a', '', 'b'], 3, 7)), [0, 2]);
   assert.deepStrictEqual(list(G.rotate(['a', 'b', 'c'], 0, 1)), [0, 1, 2]);

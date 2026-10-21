@@ -10,14 +10,34 @@
     return diff <= 0 ? 'today' : diff === 1 ? 'tomorrow' : d.toLocaleDateString(locale, { weekday: 'long' });
   }
 
-  /* g: { entity, attribute?, text: 'Tonight · {value}', hide?: [values], hours?: [from, to], within_days?: n }. {value}
-     is the state (or the attribute), {attr.x} any attribute, {day} the value read as a date (today, tomorrow or the
-     weekday). Empty, unavailable and hidden values say nothing, so the line or chip goes away.
+  /* A list counts its items, or only those matching every key of filter: a list there means one of its values (a
+     missing key reads as null), anything else must be equal. */
+  function matches(item, filter) {
+    if (!filter) return true;
+    if (!item || typeof item !== 'object') return false;
+    for (var k in filter) {
+      if (!Object.prototype.hasOwnProperty.call(filter, k)) continue;
+      var want = filter[k], got = item[k] === undefined ? null : item[k];
+      if (Array.isArray(want) ? want.indexOf(got) < 0 : got !== want) return false;
+    }
+    return true;
+  }
+  function count(list, filter) {
+    var n = 0;
+    for (var i = 0; i < list.length; i++) if (matches(list[i], filter)) n++;
+    return n;
+  }
+
+  /* g: { entity, attribute?, filter?, text: 'Tonight · {value}', hide?: [values], hours?: [from, to], within_days?: n }.
+     {value} is the state (or the attribute; a list becomes the count of its items, see filter above), {attr.x} any
+     attribute, {day} the value read as a date (today, tomorrow or the weekday). Empty, unavailable and hidden values say
+     nothing, so the line or chip goes away; a count of 0 hides like "0".
      look(id) answers { s, a } for an entity, or undefined when Home Assistant hasn't sent it. */
   function text(g, look, now, locale) {
     var s = g && g.entity ? look(g.entity) : null;
     if (!s || s.s === 'unavailable' || s.s === 'unknown') return '';
     var attrs = s.a || {}, value = g.attribute ? attrs[g.attribute] : s.s;
+    if (Array.isArray(value)) value = count(value, g.filter);
     if (value === undefined || value === null || value === '' || (g.hide || []).indexOf(String(value)) >= 0) return '';
     var h = now.getHours();
     if (g.hours && !(h >= g.hours[0] && h < g.hours[1])) return '';
@@ -51,5 +71,5 @@
     return !!s && (guests.states || ['on']).indexOf(s.s) >= 0;
   }
 
-  window.HouseGlance = { dayWord: dayWord, text: text, rotate: rotate, guestsIn: guestsIn };
+  window.HouseGlance = { dayWord: dayWord, text: text, rotate: rotate, guestsIn: guestsIn, count: count };
 })();
