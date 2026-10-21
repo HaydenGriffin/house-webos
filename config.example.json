@@ -10,6 +10,12 @@
     { "entity": "sensor.dinner_tonight", "icon": "silverwareForkKnife", "text": "Tonight · {value}", "hours": [10, 21] },
     { "entity": "todo.shopping", "icon": "cartOutline", "text": "Shopping · {value}", "hide": ["0"] }
   ],
+  "glance_max": 3,
+  "status": [
+    { "entity": "climate.living_room", "attribute": "current_temperature", "text": "{value}° inside" },
+    { "entity": "sensor.parcels_today", "text": "{value} parcels today", "hide": ["0"] }
+  ],
+  "guests": { "entity": "input_boolean.guests" },
   "quick": [
     { "name": "Pause", "sub": "The streamer", "icon": "pause", "visible": { "entity": "media_player.streamer", "states": ["playing"] },
       "action": { "service": "media_player.media_pause", "target": { "entity_id": "media_player.streamer" } } }
@@ -19,7 +25,7 @@
       "action": { "service": "script.turn_on", "target": { "entity_id": "script.everything_off" } } }
   ],
   "lights": [
-    { "name": "Living room", "entity": "light.living_room" },
+    { "name": "Living room", "entity": "light.living_room", "step": 10 },
     { "name": "Kitchen", "entity": "light.kitchen" },
     { "name": "Hallway", "entity": "light.hallway" },
     { "name": "Bedroom", "entity": "light.bedroom" },
@@ -51,7 +57,8 @@
   },
   "people": [
     { "name": "Alex", "person": "person.alex", "room": "sensor.alex_room" },
-    { "name": "Sam", "person": "person.sam" }
+    { "name": "Sam", "person": "person.sam",
+      "notes": [{ "entity": "sensor.sam_gym", "attribute": "trained_today", "text": "Gym today", "hide": ["false"], "private": true }] }
   ],
   "recap": {
     "stats": "sensor.week_stats",

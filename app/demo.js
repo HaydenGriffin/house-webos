@@ -36,13 +36,21 @@
     },
     people: [
       { name: 'Alex', person: 'person.alex', room: 'sensor.alex_room' },
-      { name: 'Sam', person: 'person.sam', room: 'sensor.sam_room' },
+      { name: 'Sam', person: 'person.sam', room: 'sensor.sam_room',
+        notes: [{ entity: 'sensor.sam_gym', attribute: 'trained_today', text: 'Gym today', hide: ['false'], private: true }] },
+    ],
+    guests: { entity: 'input_boolean.guests' },
+    status: [
+      { entity: 'sensor.heating', text: '{value}' },
+      { entity: 'sensor.parcels_today', text: '{value} parcel coming', hide: ['0'] },
     ],
     recap: { stats: 'sensor.week_stats' },
     glance: [
       { entity: 'sensor.dinner_tonight', icon: 'silverwareForkKnife', text: 'Tonight · {value}' },
       { entity: 'todo.shopping', icon: 'cartOutline', text: 'Shopping · {value}', hide: ['0'] },
+      { entity: 'sensor.bins_next', icon: 'trashCanOutline', text: '{attr.summary} {day}', within_days: 1 },
     ],
+    glance_max: 2,
     quick: [
       { name: 'Pause', sub: 'The streamer', icon: 'pause', toast: 'Paused', visible: { entity: 'media_player.streamer', states: ['playing'] },
         action: { service: 'media_player.media_pause', target: { entity_id: 'media_player.streamer' } } },
@@ -66,13 +74,22 @@
     'media_player.home_speakers': { s: 'playing', a: { media_title: 'Strawberry Letter 23', media_artist: 'The Brothers Johnson' } },
     'input_boolean.tv_in_speaker_group': { s: 'on' },
     'person.alex': { s: 'home' },
-    'sensor.alex_room': { s: 'living room' },
+    'sensor.alex_room': { s: 'study' },
     'person.sam': { s: 'home' },
     'sensor.sam_room': { s: 'kitchen' },
     'sensor.dinner_tonight': { s: 'Chicken katsu curry' },
     'todo.shopping': { s: '8' },
     'media_player.streamer': { s: 'playing' },
+    'sensor.bins_next': { s: tomorrow(), a: { summary: 'Recycling' } },
+    'sensor.heating': { s: 'Heating to 20°' },
+    'sensor.parcels_today': { s: '1' },
+    'sensor.sam_gym': { s: 'ok', a: { trained_today: true } },
+    'input_boolean.guests': { s: 'off' },
   };
+  function tomorrow() {
+    var t = new Date(); t.setDate(t.getDate() + 1);
+    return t.getFullYear() + '-' + ('0' + (t.getMonth() + 1)).slice(-2) + '-' + ('0' + t.getDate()).slice(-2);
+  }
 
   function day(offset) {
     var d = new Date(); d.setDate(d.getDate() - d.getDay() - 6 + offset);  // Monday of the week just gone, + offset

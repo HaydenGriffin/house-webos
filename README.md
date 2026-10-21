@@ -14,10 +14,13 @@ arrow keys and Enter; add `&recap` to the URL for the week recap, or `&theme=aft
 
 - **One screen, the whole house.** Light tiles with brightness, any number of action tiles (scripts, scenes, any
   Home Assistant action), TV sources with the current one lit, the speakers with play, skip and a playlist button, and
-  a chip for each person with the room they're in.
+  a chip for each person with the room they're in and anything else worth knowing ("At work", "Gym today").
 - **Made for a remote.** Arrows move by on-screen geometry, so the nearest control in that direction always gets focus.
-  OK presses, Back closes, the Magic Remote pointer works, and it closes itself after a minute idle. A door left open
-  and the next calendar event show at the top.
+  OK presses, CH + and CH − brighten and dim the light in focus, Back closes, the Magic Remote pointer works, and it
+  closes itself after a minute idle. A door left open, the next calendar event and a status line ("Heating to 20° ·
+  1 parcel coming") show at the top.
+- **Guest-aware.** Point `guests` at an `input_boolean` and anything marked `private` (sleep, the gym, what someone's
+  reading) stays off the screen while it's on.
 - **Live.** It holds one websocket to Home Assistant and subscribes to only the entities it shows, using the compressed
   `subscribe_entities` stream, so a 2021 TV keeps up.
 - **Your week at home.** Full-screen cards with count-ups, paired bar charts, a quiz, a guess-the-week reveal and a
@@ -83,13 +86,16 @@ Developer Mode sessions run out unless they're extended; the Developer Mode app 
 | `lights` | `[{ name, entity, icon?, on?, off?, action?, step? }]`. A press toggles the entity, or runs `action` instead (e.g. a script that turns the room on at Adaptive Lighting's level). `on` and `off` replace the state text ("On · 60%", "Off"). CH + and CH − on a light in focus step its brightness by `step` percent (default 10); CH − leaves a light that's off alone. |
 | `tiles` | `[{ name, sub?, icon?, toast?, entity?, on?, off?, action?, confirm?, visible? }]`. `action` is `{ service: "domain.service", data?, target? }`; with only `entity`, a press toggles it. `sub` shows while the entity is off; `on` and `off` work as on lights. `confirm: true` (or the armed label) makes it a two-press action: the first press arms it red for 5 s. `visible: { entity, states }` shows it only while the entity is in one of those states. |
 | `door`, `door_name` | A `binary_sensor`; a chip appears while it's on, with how long for. `door_name` is the chip's text (default "Door open"). |
-| `glance` | Header chips: `[{ entity, text?, icon?, attribute?, hide?, hours?, within_days? }]`. `text` takes `{value}`, `{attr.x}` and `{day}` (the value read as a date: today, tomorrow or the weekday), e.g. `"Tonight · {value}"`. A chip shows only while there's something to say. |
+| `glance` | Header chips: `[{ entity, text?, icon?, attribute?, hide?, hours?, within_days?, private? }]`. `text` takes `{value}`, `{attr.x}` and `{day}` (the value read as a date: today, tomorrow or the weekday), e.g. `"Tonight · {value}"`. A chip shows only while there's something to say. |
+| `glance_max` | How many chips fit beside the clock (default 3). Past that, the first ones stay and the rest take turns in the last place, five seconds each. |
+| `status` | One line under the title, after the next event: `[{ entity, text?, ... }]` in the same shape as `glance`, joined with " · ", e.g. `"Heating to 20° · 1 parcel coming"`. Parts with nothing to say drop out. |
+| `guests`, `private` | `guests: { entity, states? }` is in while the entity is in one of `states` (default `["on"]`). Meanwhile anything with `private: true` stays hidden: glance chips, status parts, people's notes, tiles, quick and footer actions, and the recap (`recap.private`). |
 | `quick` | Actions that lead the lights grid and take the first focus, e.g. Pause and Lights up while something plays. Same shape as `tiles`. |
 | `footer` | Pill buttons after This week, same shape as `tiles`, e.g. Everything off. |
 | `calendars` | Calendar entities for the "Next" line. |
 | `tv` | `{ title?, source_sensor?, sources: [{ name, icon?, action }], wide? }`. The source whose `name` matches the sensor's state is lit; the sensor's `line` attribute, if any, shows beside the title. |
 | `music` | `{ title?, player, extra?, toggle? }`. `extra` is a pill button with an `action`; `toggle` is a switch row, `{ name, entity, icon?, on?, off?, action_on?, action_off? }`, for an `input_boolean`: `on`/`off` label its states and `action_on`/`action_off` run instead of toggling it. |
-| `people` | `[{ name, person, room? }]`. `room` is any sensor whose state is the room name. |
+| `people` | `[{ name, person, room?, notes? }]`. `room` is any sensor whose state is the room name. `notes` are `glance`-shaped lines added after the room, e.g. `{ "entity": "sensor.gym_sam", "attribute": "trained_today", "text": "Gym today", "hide": ["false"], "private": true }`. |
 | `recap` | `{ stats, attribute?, cue?, done?, idle_minutes?, ask?, tv?, vacuum_map? }`. `done` is an action called with `reason` when a recap ends that the cue started, or that began while the cue script was running. `tv` is the TV's `media_player`, whose history gives the TV hours when the stats have none. Stats up to six days old that nobody has played on this TV are offered on the home screen ("Your week at home is ready") unless `ask` is false. See [`docs/recap-stats.md`](docs/recap-stats.md). |
 
 Icons are [Material Design Icons](https://pictogrammers.com/library/mdi/) names in camelCase, from the set in
