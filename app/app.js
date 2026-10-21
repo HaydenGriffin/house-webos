@@ -200,6 +200,10 @@
       var s = states[id]; if (!s) return;
       if (service === 'toggle') s.s = s.s === 'on' ? 'off' : 'on';
       if (service === 'media_play_pause') s.s = s.s === 'playing' ? 'paused' : 'playing';
+      if (service === 'turn_on' && data && data.brightness_step_pct) {
+        var bri = Math.max(0, Math.min(255, (s.s === 'on' ? s.a.brightness || 255 : 0) + Math.round(data.brightness_step_pct * 2.55)));
+        s.s = bri ? 'on' : 'off'; s.a.brightness = bri || undefined;
+      }
       if (/light\./.test(id) && s.s === 'on' && !s.a.brightness) s.a.brightness = 191;
     });
     if (domain === 'script' && TV && TV.source_sensor) {
@@ -476,7 +480,7 @@
     if (b.disabled || b.hasAttribute('aria-busy')) return;
     if (armed && armed !== b) disarm();
     var job = null, done = '';
-    if (b.hasAttribute('data-light')) job = call('homeassistant.toggle', {}, { entity_id: LIGHTS[+b.getAttribute('data-light')].entity });
+    if (b.hasAttribute('data-light')) job = run(LIGHTS[+b.getAttribute('data-light')]);
     else if (b.hasAttribute('data-tile')) {
       var item = actions[+b.getAttribute('data-tile')];
       if (item.confirm && armed !== b) return arm(b, item);
@@ -493,6 +497,15 @@
     b.setAttribute('aria-busy', 'true');
     job.then(function () { if (done) toast(done); }, function (e) { toast(e.message, true); })
       .then(function () { b.removeAttribute('aria-busy'); render(); });
+  }
+
+  /* A light's step (default 10%) up or down; down on a light that's off does nothing, up turns it on at one step. */
+  function dim(b, dir) {
+    if (!b || !b.hasAttribute('data-light') || b.disabled) return;
+    var l = LIGHTS[+b.getAttribute('data-light')];
+    if (dir < 0 && st(l.entity).s !== 'on') return;
+    call('light.turn_on', { brightness_step_pct: dir * (l.step || 10) }, { entity_id: l.entity })
+      .then(render, function (e) { toast(e.message, true); });
   }
 
   /* The one confirm pattern for risky actions: the first press arms the button ("Tap again to …", red) for 5 s. */
@@ -568,6 +581,8 @@
     }
     if (e.keyCode === 461 || e.keyCode === 27 || e.keyCode === 8) { e.preventDefault(); return close(); }
     if (e.keyCode >= 37 && e.keyCode <= 40) { e.preventDefault(); return move(e.keyCode); }
+    // CH + and CH − (Page Up and Page Down in a browser) brighten and dim the light in focus.
+    if (e.keyCode === 33 || e.keyCode === 34) { e.preventDefault(); return dim(document.activeElement, e.keyCode === 33 ? 1 : -1); }
     if (e.keyCode === 13) {
       e.preventDefault();
       var a = document.activeElement;
