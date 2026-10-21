@@ -12,13 +12,16 @@ arrow keys and Enter; add `&recap` to the URL for the week recap, or `&theme=aft
 
 ## What it does
 
-- **One screen, the whole house.** Light tiles with brightness, any number of action tiles (scripts, scenes, any
-  Home Assistant action), TV sources with the current one lit, the speakers with play, skip and a playlist button, and
-  a chip for each person with the room they're in and anything else worth knowing ("At work", "Gym today").
+- **One screen, the room.** Laid out like a Home Assistant wall tablet's room page: the room's line under its name, the
+  most urgent notice with its action, the TV as the hero (what's on, sources, quick actions), a row of scenes, the lamps
+  with brightness and warmth as tiles, the speakers, and a chip for each person with the room they're in and anything
+  else worth knowing ("At work", "Gym today").
+- **The shopping list, not just its count.** A chip opens the list on the whole screen, grouped by supermarket aisle;
+  OK ticks an item off, with Undo.
 - **Made for a remote.** Arrows move by on-screen geometry, so the nearest control in that direction always gets focus.
   OK presses, CH + and CH − brighten and dim the light in focus, Back closes, the Magic Remote pointer works, and it
-  closes itself after a minute idle. A door left open, the next calendar event and a status line ("Heating to 20° ·
-  1 parcel coming") show at the top.
+  closes itself after a minute idle. A door left open, the next calendar event and a status line ("18.3° · 1 parcel
+  coming") show at the top.
 - **Guest-aware.** Point `guests` at an `input_boolean` and anything marked `private` (sleep, the gym, what someone's
   reading) stays off the screen while it's on.
 - **Live.** It holds one websocket to Home Assistant and subscribes to only the entities it shows, using the compressed
@@ -37,9 +40,9 @@ arrow keys and Enter; add `&recap` to the URL for the week recap, or `&theme=aft
 - A Home Assistant user for the TV. Make it non-admin, ideally "local access only", and create a long-lived access
   token for it from its profile page.
 
-> **Status:** an earlier private build of this app runs every day on a rooted 2021 C1. Versions 1.1 to 1.4 have only
-> run in the browser demo and the tests so far. The public package, `ares-install`, the Developer Mode SSH push and
-> launching by `io.github.haydengriffin.house` haven't been tried on a TV yet. Reports either way are very welcome.
+> **Status:** House 1.4 runs on a rooted 2021 C1 (a private build of the same code, installed over SSH, since 21 Oct
+> 2026). The public package, `ares-install`, the Developer Mode SSH push and launching by `io.github.haydengriffin.house`
+> haven't been tried on a TV yet. Reports either way are very welcome.
 
 ## Install
 
@@ -51,7 +54,7 @@ config goes onto the TV separately, next to the installed app.
    ```bash
    python3 tools/package.py
    ares-setup-device            # once, to add the TV
-   ares-install -d <tv> dist/io.github.haydengriffin.house_1.4.0_all.ipk
+   ares-install -d <tv> dist/io.github.haydengriffin.house_1.5.0_all.ipk
    ```
 
 2. Copy `config.example.json` to `config.json` and fill in the websocket URL, the token and your entities. Everything
@@ -88,13 +91,17 @@ Developer Mode sessions run out unless they're extended; the Developer Mode app 
 | `door`, `door_name` | A `binary_sensor`; a chip appears while it's on, with how long for. `door_name` is the chip's text (default "Door open"). |
 | `glance` | Header chips: `[{ entity, text?, icon?, attribute?, filter?, hide?, hours?, within_days?, private? }]`. `text` takes `{value}`, `{attr.x}` and `{day}` (the value read as a date: today, tomorrow or the weekday), e.g. `"Tonight · {value}"`. A chip shows only while there's something to say. When the value is a list, `{value}` is how many items it has, or with `filter` how many match every key: a list of values means any of them (a missing key reads as `null`), anything else must be equal. E.g. `"attribute": "items", "filter": { "today": true, "status": ["expected", "out_for_delivery"] }` counts today's parcels still to come; `"hide": ["0"]` hides a count of none. |
 | `glance_max` | How many chips fit beside the clock (default 3). Past that, the first ones stay and the rest take turns in the last place, five seconds each. |
-| `status` | One line under the title, after the next event: `[{ entity, text?, ... }]` in the same shape as `glance`, joined with " · ", e.g. `"Heating to 20° · 1 parcel coming"`. Parts with nothing to say drop out. |
+| `status` | The room's line under the title, after the date: `[{ entity, text?, ... }]` in the same shape as `glance`, joined with " · ", e.g. `"18.3° · 1 parcel coming"`. Parts with nothing to say drop out. |
+| `notices` | `{ entity, room?, dismiss? }`: a notices sensor whose `items` attribute holds `{ id, title, message?, icon?: "mdi:…", level?: "info" \| "warn" \| "alert", action?: { label, service, data? }, rooms?: [...], at? }`. The row shows the most urgent of `room`'s notices (and those for `all`), newest first, with its action as a pill; `dismiss` (an action, called with the notice's `id`) adds Not now, and "N more" steps to the next. |
+| `scenes` | `[{ name, icon?, action, entity?, states? }]`: one row of labelled buttons under the TV's side; a scene whose `entity` is in one of `states` (default `["on"]`) is lit. |
+| `warmth` | `{ temperature, climate?, action }`: a tile after the lamps that runs `action` (e.g. `{ "name": "Warm now", "icon": "fire", "service": "script.turn_on", … }`), its state the room's temperature and what `climate` is doing ("18.3° · heating"). |
+| `lists` | `[{ name, entity: "todo.…", aisles? }]`. A `glance` chip with `"open": "list:0"` opens that list on the whole screen. With `aisles` (a sensor whose `aisles` attribute is `{ aisle id: [item keys] }`), items are grouped by aisle (fruit & veg, bakery, meat & fish, dairy, cupboard, drinks, frozen, household, toiletries), guessing from keywords when the sensor doesn't know an item, and items for another shop ("Makkah: rice") get its own section. OK ticks an item off; it stays with its Undo for six seconds. |
 | `guests`, `private` | `guests: { entity, states? }` is in while the entity is in one of `states` (default `["on"]`). Meanwhile anything with `private: true` stays hidden: glance chips, status parts, people's notes, tiles, quick and footer actions, and the recap (`recap.private`). |
-| `quick` | Actions that lead the lights grid and take the first focus, e.g. Pause and Lights up while something plays. Same shape as `tiles`. |
+| `quick` | Actions on the TV card that take the first focus, e.g. Pause and Lights up while something plays. Same shape as `tiles`. |
 | `footer` | Pill buttons after This week, same shape as `tiles`, e.g. Everything off. |
 | `calendars` | Calendar entities for the "Next" line. |
-| `tv` | `{ title?, source_sensor?, sources: [{ name, icon?, action }], wide? }`. The source whose `name` matches the sensor's state is lit; the sensor's `line` attribute, if any, shows beside the title. |
-| `music` | `{ title?, player, extra?, toggle? }`. `extra` is a pill button with an `action`; `toggle` is a switch row, `{ name, entity, icon?, on?, off?, action_on?, action_off? }`, for an `input_boolean`: `on`/`off` label its states and `action_on`/`action_off` run instead of toggling it. |
+| `tv` | `{ title?, source_sensor?, sources: [{ name, icon?, action }], wide? }`. The source whose `name` matches the sensor's state is lit and named under the title; the sensor's `line` attribute, if any, is what's on, big. |
+| `music` | `{ title?, player, extra? }`: what's playing, play or pause, next, and `extra`, a pill button with an `action` (e.g. a playlist). |
 | `people` | `[{ name, person, room?, notes? }]`. `room` is any sensor whose state is the room name. `notes` are `glance`-shaped lines added after the room, e.g. `{ "entity": "sensor.gym_sam", "attribute": "trained_today", "text": "Gym today", "hide": ["false"], "private": true }`. |
 | `recap` | `{ stats, attribute?, cue?, done?, idle_minutes?, ask?, tv?, vacuum_map? }`. `done` is an action called with `reason` when a recap ends that the cue started, or that began while the cue script was running. `tv` is the TV's `media_player`, whose history gives the TV hours when the stats have none. Stats up to six days old that nobody has played on this TV are offered on the home screen ("Your week at home is ready") unless `ask` is false. See [`docs/recap-stats.md`](docs/recap-stats.md). |
 
@@ -116,7 +123,8 @@ an armed action a red one. The week recap follows it, keeping the two people's c
 
 Nothing changes for the default look: `app/theme.js` does nothing without a theme, every rule in the theme's
 stylesheet is scoped to `html[data-theme="afterglow"]`, and the stylesheet and its fonts (about 180 KB) are fetched
-only when the theme is chosen. An unknown theme name keeps the default.
+only when the theme is chosen. An unknown theme name keeps the default. The theme was drawn for the earlier layout: on the room-page layout its lamp tiles are too
+tight to show their state, so the default look is the one to use for now.
 
 ## Development
 

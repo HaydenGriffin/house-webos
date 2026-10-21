@@ -8,7 +8,7 @@
   var DEMO = window.HOUSE_DEMO || null;
   var useDemo = !!DEMO && (/[?&]demo\b/.test(location.search) || (window.HOUSE_CONFIG || {}).demo);
   var CONFIG = useDemo ? DEMO.config : window.HOUSE_CONFIG || {};
-  var ICONS = window.HOUSE_ICONS || {}, G = window.HouseGlance;
+  var ICONS = window.HOUSE_ICONS || {}, G = window.HouseGlance, L = window.HouseLists, N = window.HouseNotices;
   var LOCALE = CONFIG.locale || undefined;
   var IDLE_MS = (CONFIG.idle_seconds || 60) * 1000, WARN_MS = 10000;
   var LIGHTS = CONFIG.lights || [], TILES = CONFIG.tiles || [], PEOPLE = CONFIG.people || [];
@@ -16,11 +16,13 @@
   var CALENDARS = CONFIG.calendars || [];
   var GLANCE = CONFIG.glance || [], QUICK = CONFIG.quick || [], FOOTER = CONFIG.footer || [];
   var STATUS = CONFIG.status || [], GLANCE_MAX = CONFIG.glance_max || 3, GUESTS = CONFIG.guests || null;
-  var ARM_MS = 5000, TURN_S = 5;
+  var SCENES = CONFIG.scenes || [], WARMTH = CONFIG.warmth || null, NOTICES = CONFIG.notices || null, LISTS = CONFIG.lists || [];
+  var ARM_MS = 5000, TURN_S = 5, UNDO_MS = 6000;
 
   var states = {}, sock = null, nextId = 1, pending = {}, connected = false, everConnected = false, retry = 0;
   var lastPress = Date.now(), closing = false, toastTimer = 0, nextEvent = null, armed = null;
   var recap = null, recapStarting = false, cueSeen = null, glanceTurn = 0;
+  var noticeAt = 0, noticeGone = [], sheet = null;
 
   function $(id) { return document.getElementById(id); }
   function all(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
@@ -40,26 +42,27 @@
   /* ---------- building the page from the config ---------- */
   function tileHtml(kind, n, item, icon) {
     return '<button class="tile" data-' + kind + '="' + n + '"><span class="disc" data-icon="' + esc(item.icon || icon) + '"></span>' +
-      '<span class="name">' + esc(item.name) + '</span><span class="state">' + esc(item.sub || '–') + '</span></button>';
+      '<span class="text"><span class="name">' + esc(item.name) + '</span><span class="state">' + esc(item.sub || '–') + '</span></span></button>';
   }
   function pillHtml(cls, n, item) {
     return '<button class="pill ' + cls + '" data-tile="' + n + '"><span class="ico' + (item.confirm ? '' : ' warm') + '" data-icon="' +
       esc(item.icon || 'play') + '"></span><span class="label">' + esc(item.name) + '</span></button>';
   }
-  function switchRowHtml(t) {
-    return '<button class="row" id="toggle-row" role="switch" aria-checked="false"><span class="disc" data-icon="' + esc(t.icon || 'speakers') + '"></span>' +
-      '<span class="text"><span class="name">' + esc(t.name) + '</span><span class="state" id="toggle-state">–</span></span>' +
-      '<span class="switch" aria-hidden="true"><span></span></span></button>';
+  function sceneHtml(n, item) {
+    return '<button class="scene" data-scene="' + n + '" data-tile="' + addAction(item) + '"><span class="ico" data-icon="' + esc(item.icon || 'lightbulb') + '"></span>' +
+      '<span class="label">' + esc(item.name) + '</span></button>';
   }
   /* Tiles, sources and the wide buttons share one list of actions, indexed by data-tile. */
   var actions = [];
   function addAction(item) { actions.push(item); return actions.length - 1; }
   function build() {
     document.title = $('title').textContent = CONFIG.title || 'House';
-    // Quick actions (Pause, Lights up) lead the grid, so they're the first row and the first focus while they show.
-    $('rooms').innerHTML = QUICK.map(function (q) { return tileHtml('tile', addAction(q), q, 'gestureTap').replace('<button ', '<button data-quick '); }).join('') +
-      LIGHTS.map(function (l, n) { return tileHtml('light', n, l, 'lightbulb'); }).join('') +
-      TILES.map(function (t) { return tileHtml('tile', addAction(t), t, 'gestureTap'); }).join('');
+    // Warmth is a tile too: its action (Warm now) on OK, the room's temperature and the heating's target as its state.
+    $('rooms').innerHTML = LIGHTS.map(function (l, n) { return tileHtml('light', n, l, 'lightbulb'); }).join('') +
+      TILES.map(function (t) { return tileHtml('tile', addAction(t), t, 'gestureTap'); }).join('') +
+      (WARMTH && WARMTH.action ? tileHtml('tile', addAction(WARMTH.action), WARMTH.action, 'fire').replace('<button ', '<button data-warmth ') : '');
+    $('scenes').hidden = !SCENES.length;
+    $('scenes').innerHTML = SCENES.map(function (sc, n) { return sceneHtml(n, sc); }).join('');
     if (TV) {
       $('tv').hidden = false;
       $('tv-h').textContent = TV.title || 'TV';
@@ -70,19 +73,23 @@
           esc(s.icon || 'television') + '"></span>' + esc(s.name) + '</button>';
       }).join('');
       if (TV.wide) $('tv-wide').innerHTML = pillHtml('wide', addAction(TV.wide), TV.wide);
+      // Quick actions (Pause, Lights up) sit on the TV card and take the first focus while they show.
+      $('tv-quick').innerHTML = QUICK.map(function (q) { return pillHtml('grow', addAction(q), q).replace('<button ', '<button data-quick '); }).join('');
     }
     if (MUSIC && MUSIC.player) {
       $('music').hidden = false;
       $('music-h').textContent = MUSIC.title || 'Speakers';
-      if (MUSIC.extra) $('play').parentNode.insertAdjacentHTML('beforeend', pillHtml('grow', addAction(MUSIC.extra), MUSIC.extra));
-      if (MUSIC.toggle && MUSIC.toggle.entity) $('music-toggle').innerHTML = switchRowHtml(MUSIC.toggle);
+      if (MUSIC.extra) $('transport').insertAdjacentHTML('beforeend', pillHtml('grow', addAction(MUSIC.extra), MUSIC.extra));
     }
     $('people').innerHTML = PEOPLE.map(function (p, n) {
       return '<p class="chip person" data-person="' + n + '"><span class="disc initial" aria-hidden="true">' + esc(String(p.name || '?').charAt(0)) +
         '</span><span><b>' + esc(p.name) + '</b> <span class="where">–</span></span></p>';
     }).join('');
+    // A chip with open: 'list:<n>' is a button that opens that list; the rest only say something.
     $('chips').innerHTML = GLANCE.map(function (g, n) {
-      return '<p class="chip" data-glance="' + n + '" hidden><span class="disc" data-icon="' + esc(g.icon || 'information') + '"></span><span></span></p>';
+      var tag = /^list:\d+$/.test(g.open || '') ? 'button' : 'p';
+      return '<' + tag + ' class="chip" data-glance="' + n + '"' + (tag === 'button' ? ' data-open="' + esc(g.open) + '"' : '') + ' hidden>' +
+        '<span class="disc" data-icon="' + esc(g.icon || 'information') + '"></span><span></span></' + tag + '>';
     }).join('');
     $('footer-actions').innerHTML = FOOTER.map(function (f) { return pillHtml('', addAction(f), f); }).join('');
     all('[data-icon]').forEach(function (el) { setIcon(el, el.getAttribute('data-icon')); });
@@ -94,7 +101,6 @@
     if (CONFIG.door) list.push(CONFIG.door);
     if (TV && TV.source_sensor) list.push(TV.source_sensor);
     if (MUSIC && MUSIC.player) list.push(MUSIC.player);
-    if (MUSIC && MUSIC.toggle && MUSIC.toggle.entity) list.push(MUSIC.toggle.entity);
     PEOPLE.forEach(function (p) {
       if (p.person) list.push(p.person);
       if (p.room) list.push(p.room);
@@ -102,6 +108,10 @@
     });
     if (RECAP) ['stats', 'cue', 'vacuum_map'].forEach(function (k) { if (RECAP[k]) list.push(RECAP[k]); });
     GLANCE.concat(STATUS).forEach(function (g) { list.push(g.entity); });
+    SCENES.forEach(function (sc) { list.push(sc.entity); });
+    if (WARMTH) list.push(WARMTH.temperature, WARMTH.climate);
+    if (NOTICES) list.push(NOTICES.entity);
+    LISTS.forEach(function (l) { list.push(l.entity, l.aisles); });
     if (GUESTS) list.push(GUESTS.entity);
     QUICK.concat(FOOTER, TILES).forEach(function (t) { if (t.entity) list.push(t.entity); if (t.visible) list.push(t.visible.entity); });
     return list.filter(function (id, n) { return id && list.indexOf(id) === n; });
@@ -205,6 +215,8 @@
     ids.forEach(function (id) {
       var s = states[id]; if (!s) return;
       if (service === 'toggle') s.s = s.s === 'on' ? 'off' : 'on';
+      if (service === 'turn_off') s.s = 'off';
+      if (service === 'turn_on' && !(data && data.brightness_step_pct)) s.s = 'on';
       if (service === 'media_play_pause') s.s = s.s === 'playing' ? 'paused' : 'playing';
       if (service === 'turn_on' && data && data.brightness_step_pct) {
         var bri = Math.max(0, Math.min(255, (s.s === 'on' ? s.a.brightness || 255 : 0) + Math.round(data.brightness_step_pct * 2.55)));
@@ -212,6 +224,13 @@
       }
       if (/light\./.test(id) && s.s === 'on' && !s.a.brightness) s.a.brightness = 191;
     });
+    if (domain === 'todo' && service === 'update_item') {
+      ids.forEach(function (id) {
+        var items = (DEMO.lists || {})[id] || [];
+        items.forEach(function (it) { if (it.uid === data.item) it.status = data.status; });
+        if (states[id]) states[id].s = String(items.filter(function (it) { return it.status !== 'completed'; }).length);
+      });
+    }
     if (domain === 'script' && TV && TV.source_sensor) {
       (TV.sources || []).forEach(function (src) {
         var tid = src.action && src.action.target && src.action.target.entity_id;
@@ -260,6 +279,7 @@
     });
     all('.tile[data-tile]').forEach(function (b) {
       var t = actions[+b.getAttribute('data-tile')];
+      if (b.hasAttribute('data-warmth')) return;
       if (!t.entity) return;
       b.classList.toggle('on', st(t.entity).s === 'on');
       b.querySelector('.state').textContent = t.sub && st(t.entity).s !== 'on' ? t.sub : onText(t.entity, t);
@@ -278,15 +298,11 @@
       chip.querySelector('.where').textContent = [where].concat(lines(p.notes)).join(' · ');
     });
 
-    $('date').textContent = new Date().toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });
-    // One line under the title and the clock: the next event (or the week, when it's ready), then the status line.
-    var ready = weekReady(), status = lines(STATUS).join(' · ');
-    var event = ready ? 'Your week at home is ready · This week, below'
-      : nextEvent ? 'Next ' + sentence(dayWord(nextEvent.start)) + (nextEvent.allDay ? '' : ' ' + hhmm(nextEvent.start)) + ' · ' + nextEvent.title : '';
-    $('next').hidden = !event && !status;
-    $('event').textContent = event;
-    $('event').classList.toggle('ask', !!ready);
-    $('status').textContent = event && status ? ' · ' + status : status;
+    // Under the title, as on the tablet's room page: the date and the room's line ('18.3° · lights on'), then the next event.
+    $('line').textContent = [new Date().toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' })]
+      .concat(lines(STATUS)).join(' · ');
+    $('next').hidden = !nextEvent;
+    if (nextEvent) $('next').textContent = 'Next ' + sentence(dayWord(nextEvent.start)) + (nextEvent.allDay ? '' : ' ' + hhmm(nextEvent.start)) + ' · ' + nextEvent.title;
 
     // Only glance_max chips fit beside the clock; past that the last place takes turns.
     var said = GLANCE.map(glanceText), placed = G.rotate(said, GLANCE_MAX, glanceTurn);
@@ -295,14 +311,25 @@
       chip.hidden = placed.indexOf(n) < 0;
       if (!chip.hidden) chip.lastChild.textContent = said[n];
     });
+    // Fresh stats nobody has played yet turn This week into the question.
+    var ready = weekReady();
     $('week').hidden = !(RECAP && RECAP.stats) || hiddenFromGuests(RECAP);
-    all('#footer-actions [data-tile], .tile[data-tile]').forEach(function (b) {
-      b.hidden = !visibleNow(actions[+b.getAttribute('data-tile')]);
+    $('week').classList.toggle('ready', ready);
+    all('[data-tile]').forEach(function (b) { b.hidden = !visibleNow(actions[+b.getAttribute('data-tile')]); });
+    all('[data-scene]').forEach(function (b) {
+      var sc = SCENES[+b.getAttribute('data-scene')], on = !!sc.entity && (sc.states || ['on']).indexOf(st(sc.entity).s) >= 0;
+      b.classList.toggle('selected', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
+    renderNotice();
+    renderWarmth();
+    if (sheet) refreshSheet();
 
     if (TV) {
       var src = TV.source_sensor, source = src ? st(src).s : '';
-      $('tv-line').textContent = !src ? '' : dead(src) ? 'TV status unavailable' : (attr(src, 'line') || source);
+      // The big line is what's on ('The Bear, S3 E4'); the source sits small beside the card's name.
+      var line = String(attr(src, 'line') || ''), lead = source + ' · ';
+      $('tv-source').textContent = !src ? '' : dead(src) ? 'Unavailable' : source;
+      $('tv-line').textContent = !src || dead(src) ? 'TV status unavailable' : line.indexOf(lead) === 0 ? line.slice(lead.length) : line || source;
       all('[data-source]').forEach(function (b) {
         var sel = b.getAttribute('data-source') === source;
         b.classList.toggle('selected', sel); b.setAttribute('aria-pressed', sel ? 'true' : 'false');
@@ -316,13 +343,6 @@
       setIcon($('play').querySelector('.ico'), playing ? 'pause' : 'play');
       $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play');
       if (dead(p)) all('#music button').forEach(function (b) { b.disabled = true; });
-      var t = MUSIC.toggle, row = $('toggle-row');
-      if (row) {
-        var inc = st(t.entity).s === 'on';
-        row.classList.toggle('on', inc); row.setAttribute('aria-checked', inc ? 'true' : 'false');
-        $('toggle-state').textContent = dead(t.entity) ? 'Unavailable' : inc ? (t.on || 'On') : (t.off || 'Off');
-        if (dead(t.entity)) row.disabled = true;
-      }
     }
   }
   /* visible: { entity, states: [...] } shows an action only while the entity is in one of those states. */
@@ -336,6 +356,154 @@
   /* A glance chip, a status part or a person's note; the template rules are in glance.js. */
   function glanceText(g) { return hiddenFromGuests(g) ? '' : G.text(g, look, new Date(), LOCALE); }
   function lines(list) { return (list || []).map(glanceText).filter(Boolean); }
+
+  /* ---------- the notice row: the most urgent of this room's notices, as on the tablet's room page ---------- */
+  /* notices: { entity, room?, dismiss?: { service, data? } }. Its action (a service call) and "Not now" (the dismiss
+     action, called with the notice's id) are pills; "N more" steps to the next one. */
+  function renderNotice() {
+    var list = NOTICES ? N.pick(attr(NOTICES.entity, 'items'), NOTICES.room, noticeGone) : [];
+    var box = $('notice');
+    if (!list.length) { box.hidden = true; box.removeAttribute('data-id'); return; }
+    var n = list[noticeAt % list.length], act = N.action(n);
+    var sig = n.id + '|' + list.length + '|' + !!act;
+    box.hidden = false;
+    box.className = 'notice ' + (n.level === 'alert' || n.level === 'warn' ? n.level : 'info');
+    setIcon($('notice-icon'), ICONS[N.icon(n.icon)] ? N.icon(n.icon) : n.level === 'info' ? 'bellOutline' : 'alertCircleOutline');
+    $('notice-title').textContent = n.title;
+    $('notice-sub').textContent = n.message || '';
+    if (box.getAttribute('data-sig') === sig) return;
+    var focused = box.contains(document.activeElement) ? document.activeElement.getAttribute('data-notice') : null;
+    box.setAttribute('data-sig', sig);
+    box.setAttribute('data-id', n.id);
+    $('notice-acts').innerHTML = (act ? noticePill('act', act.name, 'check', true) : '') +
+      (NOTICES.dismiss ? noticePill('dismiss', 'Not now', '', false) : '') +
+      (list.length > 1 ? noticePill('more', (list.length - 1) + ' more', 'chevronRight', false) : '');
+    all('#notice-acts [data-icon]').forEach(function (el) { setIcon(el, el.getAttribute('data-icon')); });
+    all('#notice-acts button').forEach(function (b) { b.addEventListener('click', function () { lastPress = Date.now(); press(b); }); });
+    if (focused) { var again = document.querySelector('[data-notice="' + focused + '"]') || document.querySelector('[data-notice]'); if (again) again.focus(); }
+  }
+  function noticePill(kind, label, icon, warm) {
+    return '<button class="pill" data-notice="' + kind + '">' + (icon ? '<span class="ico' + (warm ? ' warm' : '') + '" data-icon="' + icon + '"></span>' : '') +
+      '<span class="label">' + esc(label) + '</span></button>';
+  }
+  function pressNotice(b) {
+    var kind = b.getAttribute('data-notice'), id = $('notice').getAttribute('data-id');
+    var n = N.pick(attr(NOTICES.entity, 'items'), NOTICES.room, noticeGone).filter(function (x) { return x.id === id; })[0];
+    if (kind === 'more') { noticeAt++; $('notice').removeAttribute('data-sig'); render(); return null; }
+    if (!n) return null;
+    if (kind === 'act') { var a = N.action(n); return call(a.service, a.data); }
+    var d = NOTICES.dismiss, data = {}, k;
+    for (k in d.data || {}) data[k] = d.data[k];
+    data.id = n.id;
+    noticeGone.push(n.id); noticeAt = 0;
+    return call(d.service, data, d.target);
+  }
+
+  /* ---------- warmth: the room's temperature big, what the heating is doing, and one action (Warm now) ---------- */
+  /* warmth: { temperature: sensor, climate?: climate entity, action: { name, icon?, service, … } }: a tile that runs the
+     action, its state the room's temperature and what the heating is doing ('18.3° · heating'). */
+  function renderWarmth() {
+    var b = document.querySelector('[data-warmth]');
+    if (!b) return;
+    var t = WARMTH.temperature, c = WARMTH.climate, v = t && !dead(t) ? parseFloat(st(t).s) : NaN;
+    if (isNaN(v) && c) v = parseFloat(attr(c, 'current_temperature'));
+    var target = c ? attr(c, 'temperature') : null, doing = c ? attr(c, 'hvac_action') : null;
+    var what = !c || dead(c) ? '' : doing === 'heating' ? 'heating' : st(c).s === 'off' ? 'heating off' : target ? 'set ' + target + '°' : '';
+    b.classList.toggle('on', doing === 'heating');
+    b.querySelector('.state').textContent = [isNaN(v) ? '' : (Math.round(v * 10) / 10) + '°', what].filter(Boolean).join(' · ') || '–';
+  }
+
+  /* ---------- lists: a to-do list on the whole screen, by aisle; OK ticks an item off, with Undo ---------- */
+  /* lists: [{ name, entity: 'todo.x', aisles?: sensor with an `aisles` attribute }]; a glance chip with open: 'list:<n>'
+     opens it. Items come from todo.get_items when it opens and again whenever the list's count changes. */
+  function getItems(entity) {
+    if (useDemo) return Promise.resolve(JSON.parse(JSON.stringify((DEMO.lists || {})[entity] || [])));
+    return ask('todo.get_items', { status: ['needs_action'] }, { entity_id: entity }).then(function (r) { return (r[entity] && r[entity].items) || []; });
+  }
+  function openList(n) {
+    var l = LISTS[n];
+    if (!l || !l.entity) return;
+    sheet = { list: l, items: null, ticked: {}, count: st(l.entity).s, from: document.activeElement };
+    $('sheet-h').textContent = l.name || 'List';
+    $('sheet-sub').textContent = 'Loading…';
+    $('sheet-body').innerHTML = '';
+    $('house').hidden = true;
+    $('sheet').hidden = false;
+    loadSheet();
+  }
+  function loadSheet() {
+    var mine = sheet;
+    getItems(mine.list.entity).then(function (items) {
+      if (sheet !== mine) return;
+      mine.items = items; mine.count = st(mine.list.entity).s;
+      renderSheet();
+    }, function () { if (sheet === mine) $('sheet-sub').textContent = 'The list can’t be read right now.'; });
+  }
+  /* The list's state is its open count: when it moves (a tick on the phone, an item added by voice), read it again, unless
+     a tick here is still showing its Undo. */
+  function refreshSheet() {
+    if (!sheet.items || st(sheet.list.entity).s === sheet.count) return;
+    for (var uid in sheet.ticked) if (sheet.ticked[uid]) return;
+    loadSheet();
+  }
+  function closeList() {
+    if (!sheet) return;
+    var from = sheet.from;
+    for (var uid in sheet.ticked) if (sheet.ticked[uid]) clearTimeout(sheet.ticked[uid].timer);
+    sheet = null;
+    $('sheet').hidden = true;
+    $('house').hidden = false;
+    if (from && from.offsetParent !== null) from.focus(); else focusFirst();
+  }
+  function renderSheet() {
+    var l = sheet.list, aisles = l.aisles ? attr(l.aisles, 'aisles') : null;
+    var sections = L.group(sheet.items, aisles, !!l.aisles);
+    var open = sheet.items.filter(function (it) { return it.status !== 'completed' && !sheet.ticked[it.uid]; }).length;
+    $('sheet-sub').textContent = open ? open + (open === 1 ? ' thing' : ' things') + ' to get' : 'Nothing to get';
+    var focused = document.activeElement && document.activeElement.getAttribute('data-uid');
+    $('sheet-body').innerHTML = sections.map(function (sec) {
+      return '<section class="aisle">' + (sec.label ? '<h3><span class="ico" data-icon="' + esc(sec.icon) + '"></span>' + esc(sec.label) + '</h3>' : '') +
+        sec.items.map(function (r) {
+          var t = sheet.ticked[r.uid];
+          return '<button class="item' + (t ? ' ticked' : '') + '" data-uid="' + esc(r.uid) + '"><span class="box"><span class="ico" data-icon="check"></span></span>' +
+            '<span class="label">' + esc(r.name) + '</span>' + (t ? '<span class="undo">Undo</span>' : '') + '</button>';
+        }).join('') + '</section>';
+    }).join('');
+    all('#sheet [data-icon]').forEach(function (el) { setIcon(el, el.getAttribute('data-icon')); });
+    all('#sheet .item').forEach(function (b) { b.addEventListener('click', function () { lastPress = Date.now(); tickItem(b); }); });
+    var again = (focused && document.querySelector('#sheet [data-uid="' + focused + '"]')) || document.querySelector('#sheet .item');
+    if (again) again.focus();
+  }
+  /* OK on an item ticks it off at once; it stays, struck through with Undo, for UNDO_MS, then goes. OK again puts it back. */
+  function tickItem(b) {
+    var uid = b.getAttribute('data-uid'), entity = sheet.list.entity, t = sheet.ticked[uid], mine = sheet;
+    if (t) {
+      clearTimeout(t.timer); delete sheet.ticked[uid];
+      renderSheet();
+      call('todo.update_item', { item: uid, status: 'needs_action' }, { entity_id: entity }).then(null, function (e) { toast(e.message, true); });
+      return;
+    }
+    sheet.ticked[uid] = { timer: setTimeout(function () {
+      if (sheet !== mine || !sheet.ticked[uid]) return;
+      var next = nextItem(uid), here = document.activeElement && document.activeElement.getAttribute('data-uid') === uid;
+      delete sheet.ticked[uid];
+      sheet.items = sheet.items.filter(function (it) { return it.uid !== uid; });
+      renderSheet();
+      var nb = next && document.querySelector('#sheet [data-uid="' + next + '"]');
+      if (nb && here) nb.focus();
+    }, UNDO_MS) };
+    renderSheet();
+    call('todo.update_item', { item: uid, status: 'completed' }, { entity_id: entity }).then(null, function (e) {
+      if (sheet === mine && sheet.ticked[uid]) { clearTimeout(sheet.ticked[uid].timer); delete sheet.ticked[uid]; renderSheet(); }
+      toast(e.message, true);
+    });
+  }
+  function nextItem(uid) {
+    var rows = all('#sheet .item'), i;
+    for (i = 0; i < rows.length; i++) if (rows[i].getAttribute('data-uid') === uid) break;
+    var other = rows[i + 1] || rows[i - 1];
+    return other ? other.getAttribute('data-uid') : null;
+  }
   function since(lc) {
     if (!lc) return '';
     var min = Math.floor((Date.now() / 1000 - lc) / 60);
@@ -409,10 +577,15 @@
   function foodPhotos(paths, done) {
     pictures(paths, 8, function (list, got) { done(got.filter(Boolean)); });
   }
-  /* The covers of the books the reading card may show, as { path: URL } for the ones that loaded. */
-  function bookCovers(r, done) {
+  /* The pictures the recap's cards may show (book covers, new recipes' pictures, the vacuum's maps), as { path: URL } for
+     the ones that loaded. */
+  function recapPictures(s, done) {
+    var r = s && s.reading, f = s && s.food, v = s && s.vacuum;
     var books = r ? [].concat(r.finished || [], r.current || []) : [];
-    pictures(books.map(function (b) { return b && b.cover; }), 6, function (list, got) {
+    var paths = books.map(function (b) { return b && b.cover; })
+      .concat(((f && f.recipes) || []).map(function (x) { return x && x.first === true && x.image; }))
+      .concat(((v && v.maps) || []).map(function (x) { return x && x.picture; }));
+    pictures(paths, 14, function (list, got) {
       var map = {};
       list.forEach(function (p, n) { if (got[n]) map[p] = got[n]; });
       done(map);
@@ -430,15 +603,15 @@
     if (recapStarting || !RECAP) return;
     if (recap) { recap.stop(); recap = null; }
     recapStarting = true;
-    var rawStats = attr(RECAP.stats, RECAP.attribute || 'stats'), stats = adaptStats(rawStats), hours = null, photos = [], covers = {}, waiting = 3;
+    var rawStats = attr(RECAP.stats, RECAP.attribute || 'stats'), stats = adaptStats(rawStats), hours = null, photos = [], pics = {}, waiting = 3;
     tvHours(function (h) { hours = h; ready(); });
     foodPhotos(stats && stats.food && stats.food.photos, function (p) { photos = p; ready(); });
-    bookCovers(stats && stats.reading, function (c) { covers = c; ready(); });
+    recapPictures(stats, function (c) { pics = c; ready(); });
     function ready() {
       if (--waiting) return;
       recapStarting = false;
       var vac = stats && stats.vacuum;
-      var cards = window.HouseRecap.build({ stats: stats, tvHours: hours, foodPhotos: photos, bookCovers: covers, locale: LOCALE,
+      var cards = window.HouseRecap.build({ stats: stats, tvHours: hours, foodPhotos: photos, pictures: pics, locale: LOCALE,
         vacuumMap: useDemo ? DEMO.vacuumMap : cameraPicture((vac && vac.map_entity) || RECAP.vacuum_map), backTo: backTo(), now: useDemo && DEMO.now ? DEMO.now() : null });
       if (!cards.length) {
         if (auto) return close();
@@ -484,19 +657,18 @@
   function press(b) {
     if (b.id === 'close') return close();
     if (b.id === 'week') return openRecap(false);
+    if (b.hasAttribute('data-open')) return openList(+b.getAttribute('data-open').split(':')[1]);
+    if (b.hasAttribute('data-uid')) return tickItem(b);
     if (b.disabled || b.hasAttribute('aria-busy')) return;
     if (armed && armed !== b) disarm();
     var job = null, done = '';
     if (b.hasAttribute('data-light')) job = run(LIGHTS[+b.getAttribute('data-light')]);
+    else if (b.hasAttribute('data-notice')) job = pressNotice(b);
     else if (b.hasAttribute('data-tile')) {
       var item = actions[+b.getAttribute('data-tile')];
       if (item.confirm && armed !== b) return arm(b, item);
       disarm();
       job = run(item); done = item.toast || '';
-    }
-    else if (b.id === 'toggle-row') {
-      var t = MUSIC.toggle, a = st(t.entity).s === 'on' ? t.action_off : t.action_on;
-      job = a && a.service ? call(a.service, a.data, a.target) : call('homeassistant.toggle', {}, { entity_id: t.entity });
     }
     else if (b.getAttribute('data-act') === 'music_toggle') job = call('media_player.media_play_pause', {}, { entity_id: MUSIC.player });
     else if (b.getAttribute('data-act') === 'music_next') job = call('media_player.media_next_track', {}, { entity_id: MUSIC.player });
@@ -586,7 +758,7 @@
       else if (k === 39 || k === 13) recap.next();
       return;
     }
-    if (e.keyCode === 461 || e.keyCode === 27 || e.keyCode === 8) { e.preventDefault(); return close(); }
+    if (e.keyCode === 461 || e.keyCode === 27 || e.keyCode === 8) { e.preventDefault(); return sheet ? closeList() : close(); }
     if (e.keyCode >= 37 && e.keyCode <= 40) { e.preventDefault(); return move(e.keyCode); }
     // CH + and CH − (Page Up and Page Down in a browser) brighten and dim the light in focus.
     if (e.keyCode === 33 || e.keyCode === 34) { e.preventDefault(); return dim(document.activeElement, e.keyCode === 33 ? 1 : -1); }
@@ -620,7 +792,7 @@
   // goes instead of staying suspended in the TV's memory.
   document.addEventListener('visibilitychange', function () {
     if (useDemo) return;
-    if (document.hidden) { if (recap) { recap.end('left'); recap = null; } closing = false; close(); return; }
+    if (document.hidden) { if (recap) { recap.end('left'); recap = null; } closeList(); closing = false; close(); return; }
     lastPress = Date.now(); closing = false; document.body.style.visibility = '';
   });
 

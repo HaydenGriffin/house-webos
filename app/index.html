@@ -11,49 +11,50 @@
   <header class="top">
     <div class="title">
       <h1 id="title">House</h1>
-      <p id="date"></p>
+      <p id="line" class="sub"></p>
+      <p id="next" class="sub" hidden></p>
     </div>
     <div class="glance">
       <span id="chips"></span>
       <p id="door" class="chip open" hidden><span class="disc" data-icon="doorOpen"></span><span>Door open</span></p>
       <time id="clock"></time>
     </div>
-    <p id="next" class="next" hidden><span id="event"></span><span id="status"></span></p>
   </header>
 
   <p id="banner" role="status" hidden></p>
 
+  <section id="notice" class="notice" hidden>
+    <span class="disc" id="notice-icon"></span>
+    <span class="text"><span class="name" id="notice-title"></span><span class="sub" id="notice-sub"></span></span>
+    <span id="notice-acts"></span>
+  </section>
+
   <div class="layout">
-    <section class="lights" aria-labelledby="lights-h">
-      <h2 id="lights-h">Lights</h2>
-      <div class="rooms" id="rooms"></div>
+    <section class="card tv" id="tv" aria-labelledby="tv-h" hidden>
+      <div class="head"><span class="disc" data-icon="television"></span>
+        <span class="text"><span class="name" id="tv-h">TV</span><span class="sub" id="tv-source"></span></span></div>
+      <p id="tv-line" class="hero"></p>
+      <div id="tv-quick" class="quick"></div>
+      <div class="segments" id="sources" role="group" aria-label="TV source"></div>
+      <div id="tv-wide"></div>
     </section>
 
     <div class="side">
-      <section class="tv" id="tv" aria-labelledby="tv-h" hidden>
-        <div class="head"><h2 id="tv-h">TV</h2><p id="tv-line" class="sub"></p></div>
-        <div class="segments" id="sources" role="group" aria-label="TV source"></div>
-        <div id="tv-wide"></div>
-      </section>
-
-      <section class="music" id="music" aria-labelledby="music-h" hidden>
-        <h2 id="music-h">Speakers</h2>
-        <div class="now">
-          <p id="track" class="track">Nothing playing</p>
-          <p id="artist" class="sub"></p>
-        </div>
-        <div class="transport">
+      <div class="card scenes" id="scenes" role="group" aria-label="Scenes" hidden></div>
+      <div class="tiles" id="rooms"></div>
+      <section class="card music" id="music" aria-labelledby="music-h" hidden>
+        <div class="text"><span class="sub" id="music-h">Speakers</span><p id="track" class="track">Nothing playing</p><p id="artist" class="sub"></p></div>
+        <div class="transport" id="transport">
           <button class="round" id="play" data-act="music_toggle" aria-label="Play"><span class="ico" data-icon="play"></span></button>
           <button class="round" data-act="music_next" aria-label="Next track"><span class="ico" data-icon="skipNext"></span></button>
         </div>
-        <div id="music-toggle"></div>
       </section>
     </div>
   </div>
 
   <footer class="bottom">
     <button class="pill" id="close"><span class="ico" data-icon="arrowLeft"></span>Back to TV</button>
-    <button class="pill" id="week" hidden><span class="ico" data-icon="calendarWeek"></span>This week</button>
+    <button class="pill" id="week" hidden><span class="ico" data-icon="calendarWeek"></span><span class="label">This week</span></button>
     <span id="footer-actions"></span>
     <span id="people"></span>
   </footer>
@@ -61,6 +62,12 @@
 
   <p id="toast" role="status" aria-live="polite" hidden></p>
 </main>
+
+<section id="sheet" class="sheet" aria-labelledby="sheet-h" hidden>
+  <div class="sheet-head"><h2 id="sheet-h"></h2><p id="sheet-sub" class="sub"></p></div>
+  <div id="sheet-body" class="sheet-body"></div>
+  <p class="sheet-hint sub">OK ticks it off · Back closes</p>
+</section>
 
 <section id="recap" aria-label="Your week at home" hidden>
   <div class="r-bars" aria-hidden="true"></div>
@@ -72,6 +79,8 @@
 <script src="icons.js"></script>
 <script src="demo.js"></script>
 <script src="glance.js"></script>
+<script src="lists.js"></script>
+<script src="notices.js"></script>
 <script src="recap.js"></script>
 <script src="app.js"></script>
 </body>

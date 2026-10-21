@@ -1,14 +1,14 @@
 {
   "url": "ws://homeassistant.local:8123/api/websocket",
   "token": "a long-lived access token for a non-admin Home Assistant user",
-  "title": "House",
+  "title": "Living room",
   "locale": "en-GB",
   "idle_seconds": 60,
   "calendars": ["calendar.family"],
   "door": "binary_sensor.front_door",
   "glance": [
     { "entity": "sensor.dinner_tonight", "icon": "silverwareForkKnife", "text": "Tonight · {value}", "hours": [10, 21] },
-    { "entity": "todo.shopping", "icon": "cartOutline", "text": "Shopping · {value}", "hide": ["0"] }
+    { "entity": "todo.shopping", "icon": "cartOutline", "text": "Shopping · {value}", "hide": ["0"], "open": "list:0" }
   ],
   "glance_max": 3,
   "status": [
@@ -32,15 +32,20 @@
     { "name": "Bedroom", "entity": "light.bedroom" },
     { "name": "Study", "entity": "light.study" }
   ],
-  "tiles": [
-    {
-      "name": "Warm living room",
-      "sub": "For 2 hours",
-      "icon": "radiator",
-      "toast": "Warming the living room for 2 hours",
-      "action": { "service": "script.turn_on", "target": { "entity_id": "script.warm_living_room" } }
-    }
+  "scenes": [
+    { "name": "Bright", "icon": "brightness7", "action": { "service": "light.turn_on", "target": { "entity_id": "light.living_room" }, "data": { "brightness_pct": 100 } } },
+    { "name": "Relax", "icon": "sofaOutline", "action": { "service": "light.turn_on", "target": { "entity_id": "light.living_room" }, "data": { "brightness_pct": 45 } } },
+    { "name": "Cinema", "icon": "movieOpenOutline", "entity": "input_boolean.cinema", "action": { "service": "input_boolean.toggle", "target": { "entity_id": "input_boolean.cinema" } } },
+    { "name": "Off", "icon": "power", "action": { "service": "light.turn_off", "target": { "entity_id": "light.living_room" } } }
   ],
+  "warmth": {
+    "temperature": "sensor.living_room_temperature",
+    "climate": "climate.living_room",
+    "action": { "name": "Warm now", "icon": "fire", "toast": "Warming the living room for 2 hours",
+                "service": "script.turn_on", "target": { "entity_id": "script.warm_living_room" } }
+  },
+  "notices": { "entity": "sensor.notices", "room": "living_room", "dismiss": { "service": "script.notice_dismiss" } },
+  "lists": [{ "name": "Shopping", "entity": "todo.shopping", "aisles": "sensor.shopping_aisles" }],
   "tv": {
     "title": "TV",
     "source_sensor": "sensor.tv_source",
@@ -53,8 +58,7 @@
   "music": {
     "title": "Home speakers",
     "player": "media_player.home_speakers",
-    "extra": { "name": "Evening mix", "icon": "playlist", "action": { "service": "script.turn_on", "target": { "entity_id": "script.evening_mix" } } },
-    "toggle": { "name": "TV joins the speakers", "entity": "input_boolean.tv_in_speaker_group", "on": "Joins when music plays", "off": "Stays out" }
+    "extra": { "name": "Evening mix", "icon": "playlist", "action": { "service": "script.turn_on", "target": { "entity_id": "script.evening_mix" } } }
   },
   "people": [
     { "name": "Alex", "person": "person.alex", "room": "sensor.alex_room" },

@@ -23,44 +23,36 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: non
 button:focus { outline: none; }
 svg { display: block; width: 100%; height: 100%; fill: currentColor; }
 
-/* 5% overscan-safe margins. */
-#house { position: relative; display: flex; flex-direction: column; width: 100%; height: 100%; padding: 50px 96px 46px; }
-#house > * + * { margin-top: 24px; }
-#house[aria-busy='true'] .layout, #house[aria-busy='true'] .bottom #idle { opacity: .55; }
+/* 5% overscan-safe margins. The home screen follows the house's tablet room page (Lamplight): a header with the room's line,
+   one notice, the TV as the hero, then scenes, the lamps, warmth and the speakers. */
+#house { position: relative; display: flex; flex-direction: column; width: 100%; height: 100%; padding: 46px 96px 44px; }
+#house > * + * { margin-top: 22px; }
+#house[aria-busy='true'] .layout { opacity: .55; }
 
-.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; }
-/* The next event and the status line run the full width under the title and the clock, clear of the chips. */
-.top > .next { flex: 0 0 100%; }
-h1 { font-size: 56px; line-height: 1; }
-#date, .next { margin-top: 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 400; font-size: 30px; color: var(--muted); }
-.next { margin-top: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.top { display: flex; align-items: center; justify-content: space-between; }
+h1 { font-size: 56px; line-height: 1.05; }
 .title { flex: 1 1 auto; min-width: 0; margin-right: 32px; }
-.glance { flex: none; }
-.chip { white-space: nowrap; }
-.person .initial { display: grid; place-items: center; padding: 0; font-size: 28px; font-weight: 600; }
-.person .where { font-weight: 400; color: var(--muted); }
-.person.out .initial { background: transparent; box-shadow: inset 0 0 0 3px var(--raised-2); color: var(--muted); }
-.glance { display: flex; align-items: center; }
-#clock { font: 600 76px/1 var(--num-font); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
-.chip { display: flex; align-items: center; min-height: 76px; padding: 8px 28px 8px 8px;
+.title .sub { margin-top: 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.glance { display: flex; flex: none; align-items: center; }
+#clock { font: 600 80px/1 var(--num-font); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+.chip { display: flex; align-items: center; min-height: 76px; padding: 8px 28px 8px 8px; white-space: nowrap;
   border-radius: 40px; background: var(--panel); font-size: 30px; }
 .chip .disc { width: 60px; height: 60px; padding: 14px; }
 .chip.open { background: var(--warn-ground); color: var(--warn); }
 .chip.open .disc { background: transparent; box-shadow: inset 0 0 0 3px var(--warn); color: var(--warn); }
-.glance .chip { max-width: 520px; }
+.glance .chip { max-width: 500px; }
 .glance .chip > span:last-child { overflow: hidden; text-overflow: ellipsis; }
-.next .ask { color: var(--accent); }
-
 #chips { display: flex; }
-#chips > * + * { margin-left: 20px; }
+#chips > * + * { margin-left: 18px; }
+.person .initial { display: grid; place-items: center; padding: 0; font-size: 28px; font-weight: 600; }
+.person .where { font-weight: 400; color: var(--muted); }
+.person.out .initial { background: transparent; box-shadow: inset 0 0 0 3px var(--raised-2); color: var(--muted); }
 
 #banner { padding: 16px 28px; border-radius: 24px; background: var(--error-ground); color: var(--error-text);
   border: 2px solid rgba(255,138,128,.45); font-size: 30px; }
 
-.layout { flex: 1; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); column-gap: 40px; min-height: 0; transition: opacity .2s ease-out; }
-section { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
-h2 { font-size: 36px; line-height: 1.15; margin-bottom: 16px; }
 .sub { font-weight: 400; font-size: 30px; color: var(--muted); }
+section { min-width: 0; }
 
 /* Discs: the House signature. Filled warm + halo means on, and only on. */
 .disc { display: block; flex: none; width: 84px; height: 84px; padding: 21px; border-radius: 50%;
@@ -68,88 +60,133 @@ h2 { font-size: 36px; line-height: 1.15; margin-bottom: 16px; }
 .ico { display: inline-block; flex: none; width: 44px; height: 44px; }
 .ico.warm { color: var(--warm); }
 
-/* Lights: a 2×3 grid of room tiles. */
-/* minmax(0, 1fr): with the quick actions as a fourth row, the rows share the height instead of growing past it. */
-.rooms { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-auto-rows: minmax(0, 1fr); gap: 22px; min-height: 0; }
-.tile { position: relative; display: grid; grid-template-columns: auto 1fr; grid-template-rows: 1fr 1fr;
-  column-gap: 24px; align-items: center; padding: 22px 28px; border-radius: 30px; background: var(--panel); }
-.tile .disc { grid-row: 1 / 3; }
-.tile .name { align-self: end; font-size: 34px; line-height: 1.15; min-width: 0; }
-.tile .state { align-self: start; font-weight: 400; font-size: 30px; color: var(--muted); }
-.tile.on { background: radial-gradient(120% 100% at 0% 0%, rgba(var(--warm-rgb), .30), rgba(var(--warm-rgb), 0) 62%), var(--panel); }
-.tile.on .disc, .row.on .disc { background: var(--warm); color: var(--warm-ink); box-shadow: 0 0 22px rgba(var(--warm-rgb), .45); }
-.tile.on .state { color: var(--warm); }
+/* The notice row: the room's most urgent notice, its action and Not now; a warning's disc is outlined, never filled. */
+.notice { display: flex; align-items: center; padding: 16px 16px 16px 18px; border-radius: 40px; background: var(--panel); }
+.notice .disc { width: 76px; height: 76px; padding: 19px; background: var(--warm); color: var(--warm-ink); }
+.notice.warn .disc, .notice.alert .disc { background: transparent; box-shadow: inset 0 0 0 3px var(--warn); color: var(--warn); }
+.notice.alert .disc { box-shadow: inset 0 0 0 3px var(--alert); color: var(--alert); }
+.notice .text { display: flex; flex: 1; flex-direction: column; min-width: 0; margin: 0 24px; }
+.notice .name { font-size: 32px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.notice .sub { font-size: 28px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#notice-acts { display: flex; flex: none; }
+#notice-acts > * + * { margin-left: 16px; }
+.notice .pill { height: 76px; }
 
-.side { display: grid; grid-template-rows: auto 1fr; row-gap: 22px; min-height: 0; }
-.side section { padding: 22px 28px 24px; border-radius: 30px; background: var(--panel); }
-.side h2 { margin-bottom: 2px; }
-.tv .head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
-.tv .head h2 { margin: 0; }
+.layout { flex: 1; display: grid; grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr); column-gap: 24px; min-height: 0;
+  transition: opacity .2s ease-out; }
+.card { border-radius: 36px; background: var(--panel); }
 
+/* The TV: what's on, big, then any quick action, the sources and the wide button. */
+.tv { display: flex; flex-direction: column; min-height: 0; padding: 26px 28px 28px; }
+.tv .head { display: flex; align-items: center; }
+.tv .head .text { display: flex; flex-direction: column; min-width: 0; margin-left: 22px; }
+.tv .head .name { font-size: 34px; }
+.tv .head .sub { font-size: 28px; }
+.tv .hero { flex: 1; margin: 22px 0 18px; font-size: 52px; line-height: 1.1; overflow: hidden; }
+.quick { display: flex; }
+.quick:empty { display: none; }
+.quick > * + * { margin-left: 16px; }
+.quick + .segments { margin-top: 18px; }
 
 /* Source switch: selection is sky (the Sky Rule), never warm. */
 .segments { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 8px; padding: 8px; border-radius: 46px; background: var(--raised); }
 .seg { display: flex; align-items: center; justify-content: center; height: 80px; border-radius: 40px; font-size: 32px; }
 .seg.selected { background: var(--accent); color: var(--accent-ink); }
 .pill { display: inline-flex; align-items: center; height: 84px; padding: 0 40px 0 32px;
-  border-radius: 42px; background: var(--raised-2); font-size: 32px; }
+  border-radius: 42px; background: var(--raised-2); font-size: 32px; white-space: nowrap; }
 .pill.wide { width: 100%; margin-top: 16px; justify-content: center; }
+.grow { flex: 1; justify-content: center; }
 .round { display: flex; align-items: center; justify-content: center; flex: none; width: 84px; height: 84px; border-radius: 50%; background: var(--raised-2); }
 
-.music { display: flex; flex-direction: column; }
-.music .now { margin: 6px 0 16px; min-height: 80px; }
-.track { font-size: 36px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.music .sub { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.transport { display: flex; margin-bottom: 16px; }
-.grow { flex: 1; justify-content: center; }
-.row { display: flex; align-items: center; margin-top: auto; padding: 10px 22px 10px 10px; border-radius: 30px; background: var(--raised); }
-.row .disc { width: 72px; height: 72px; padding: 18px; }
-.row .text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.row .name { font-size: 30px; }
-.row .state { font-weight: 400; font-size: 28px; color: var(--muted); }
-.switch { position: relative; flex: none; width: 104px; height: 60px; border-radius: 30px; background: var(--raised-2); }
-.switch span { position: absolute; top: 8px; left: 8px; width: 44px; height: 44px; border-radius: 50%; background: var(--muted); transition: transform .15s ease-out; }
-.row.on .switch { background: var(--warm); }
-.row.on .switch span { transform: translateX(44px); background: var(--warm-ink); }
+.side { display: flex; flex-direction: column; min-height: 0; }
+.side > * + * { margin-top: 22px; }
+
+/* Scenes: one row of labelled buttons; the one that's on is sky. */
+.scenes { display: flex; flex: none; padding: 10px; }
+.scenes > * + * { margin-left: 8px; }
+.scene { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; height: 108px;
+  border-radius: 28px; font-size: 28px; }
+.scene .ico { width: 42px; height: 42px; margin-bottom: 6px; }
+.scene.selected { background: var(--accent); color: var(--accent-ink); }
+
+/* The lamps and any action tiles: three across, the rows sharing what's left. */
+.tiles { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 22px; min-height: 0; }
+.tile { position: relative; display: flex; align-items: center; min-height: 0; padding: 16px 22px 16px 18px; border-radius: 32px; background: var(--panel); }
+.tile .disc { width: 72px; height: 72px; padding: 18px; margin-right: 20px; }
+.tile .text { display: flex; flex-direction: column; min-width: 0; }
+.tile .name { font-size: 31px; line-height: 1.15; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.tile .state { font-weight: 400; font-size: 27px; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.tile.on { background: radial-gradient(120% 100% at 0% 0%, rgba(var(--warm-rgb), .30), rgba(var(--warm-rgb), 0) 62%), var(--panel); }
+.tile.on .disc { background: var(--warm); color: var(--warm-ink); box-shadow: 0 0 22px rgba(var(--warm-rgb), .45); }
+.tile.on .state { color: var(--warm); }
+
+/* The speakers: what's playing, then play or pause, next and the playlist. */
+.music { display: flex; flex: none; align-items: center; padding: 18px 22px 18px 28px; }
+.music .text { flex: 1; min-width: 0; margin-right: 20px; }
+.music .sub { font-size: 26px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.track { font-size: 34px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.transport { display: flex; flex: none; }
+.transport > * + * { margin-left: 14px; }
+.transport .pill { padding: 0 32px 0 26px; }
 
 .bottom { display: flex; align-items: center; }
 .bottom .pill, .bottom .chip { flex: none; white-space: nowrap; }
+#week.ready { background: var(--accent); color: var(--accent-ink); }
 /* People give way first when a note makes the footer too long. */
-#people { flex: 0 1 auto; min-width: 0; }
+#people { display: flex; flex: 0 1 auto; align-items: center; min-width: 0; }
+#people > * + * { margin-left: 20px; }
 .bottom .person { flex: 0 1 auto; min-width: 0; }
 .person > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* The two-tap arm for risky actions: the first press arms it red for 5 s, the second runs it. */
 .armed, .armed:focus { background: var(--alert) !important; color: #2b0a07; filter: none !important; }
 .armed .ico.warm { color: inherit; }
 
+/* A list on the whole screen, by aisle in columns; a ticked item is struck through with its Undo until it goes. */
+.sheet { position: fixed; top: 0; left: 0; display: flex; flex-direction: column; width: 1920px; height: 1080px; padding: 50px 96px 44px; background: var(--page); }
+.sheet-head { display: flex; align-items: baseline; }
+.sheet-head h2 { font-size: 56px; line-height: 1.05; }
+.sheet-head .sub { margin-left: 28px; }
+.sheet-body { flex: 1; min-height: 0; margin-top: 28px; overflow-y: auto; column-count: 3; column-gap: 28px; padding: 14px; }
+.sheet-body::-webkit-scrollbar { display: none; }
+.aisle { break-inside: avoid; margin-bottom: 26px; }
+.aisle h3 { display: flex; align-items: center; margin: 0 0 10px 6px; font-size: 28px; font-weight: 600; color: var(--muted); }
+.aisle h3 .ico { width: 34px; height: 34px; margin-right: 12px; }
+.item { display: flex; align-items: center; width: 100%; min-height: 80px; margin-bottom: 10px; padding: 10px 24px 10px 16px;
+  border-radius: 28px; background: var(--panel); font-size: 34px; }
+.item .box { display: block; flex: none; width: 52px; height: 52px; margin-right: 20px; padding: 9px; border-radius: 50%;
+  box-shadow: inset 0 0 0 3px var(--raised-2); color: transparent; }
+.item .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item.ticked .box { background: var(--warm); box-shadow: none; color: var(--warm-ink); }
+.item.ticked .label { color: var(--muted); text-decoration: line-through; }
+.item .undo { flex: none; margin-left: 16px; padding: 6px 20px; border-radius: 24px; background: var(--raised-2); font-size: 26px; }
+.sheet-hint { margin-top: 16px; font-size: 26px; }
+
 /* Focus is the whole interface on a remote: sky ring, a lift, and a brighter ground. */
-.tile, .seg, .pill, .round, .row { transition: transform .12s ease-out, box-shadow .12s ease-out, background-color .12s ease-out; }
-.tile:focus, .seg:focus, .pill:focus, .round:focus, .row:focus {
+.tile, .seg, .pill, .round, .scene, .chip, .item { transition: transform .12s ease-out, box-shadow .12s ease-out, background-color .12s ease-out; }
+.tile:focus, .seg:focus, .pill:focus, .round:focus, .scene:focus, button.chip:focus, .item:focus {
   box-shadow: 0 0 0 6px var(--page), 0 0 0 12px var(--accent), 0 14px 36px rgba(0,0,0,.55); transform: scale(1.03); }
-.pill:focus, .round:focus, .seg:focus:not(.selected) { background: var(--raised-2); filter: brightness(1.25); }
+.pill:focus:not(.armed):not(#week.ready), .round:focus, .seg:focus:not(.selected), .scene:focus:not(.selected), button.chip:focus, .item:focus { filter: brightness(1.25); }
+.item:focus { transform: scale(1.02); }
 [disabled] { opacity: .45; }
 [aria-busy='true'] { opacity: .7; }
 
 /* Bottom right, in the footer's empty side: on the TV the top carries the door chip and the clock. */
-#toast { position: absolute; bottom: 46px; right: 96px; max-width: 1040px; padding: 20px 40px;
+#toast { position: absolute; bottom: 44px; right: 96px; max-width: 1040px; padding: 20px 40px;
   border-radius: 44px; background: var(--toast-ground); border: 2px solid rgba(255,255,255,.12);
   box-shadow: 0 10px 30px rgba(0,0,0,.5); font-size: 32px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #toast.error { background: var(--error-ground); border-color: rgba(255,138,128,.45); color: var(--error-text); }
-/* Only the last ten seconds say anything about closing; the footer is busy enough. */
-#idle { position: absolute; bottom: 150px; right: 96px; padding: 16px 32px; border-radius: 40px; background: var(--warn-ground);
+/* Only the last ten seconds say anything about closing. */
+#idle { position: fixed; bottom: 150px; right: 96px; padding: 16px 32px; border-radius: 40px; background: var(--warn-ground);
   color: var(--warn); font-size: 30px; white-space: nowrap; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
 /* Chromium 79 has no flex gap (Chrome 84+): sibling margins instead. */
-.glance > * + * { margin-left: 20px; }
-.glance > #clock { margin-left: 36px; }
+.glance > * + * { margin-left: 18px; }
+.glance > #clock { margin-left: 34px; }
 .chip > * + * { margin-left: 16px; }
 .seg > .ico { margin-right: 14px; }
 .pill > .ico { margin-right: 16px; }
-.transport > * + * { margin-left: 18px; }
-.row > * + * { margin-left: 24px; }
-.row .text > * + * { margin-top: 4px; }
 .bottom > * + * { margin-left: 20px; }
 
 /* Week recap, Wrapped-style: one idea per card, a hero number or picture and at most one line, read from the sofa.
@@ -405,6 +442,111 @@ h2 { font-size: 36px; line-height: 1.15; margin-bottom: 16px; }
 .r-guess-answer { font-size: 180px; }
 .r-guesscard .r-line { margin-top: 10px; }
 
-/* People chips sit in one wrapper so the list can come from the config. */
-#people { display: flex; align-items: center; }
-#people > * + * { margin-left: 20px; }
+/* What we did: each person's totals on the left, the week's activities as rows on the right, a disc in their colour. */
+.r-actcard .r-mark, .r-routecard .r-mark, .r-echartcard .r-mark, .r-watchcard .r-mark, .r-recipecard .r-mark { display: none; }
+.r-actcols { display: flex; align-items: flex-start; }
+.r-act-totals { flex: none; width: 420px; }
+.r-act-total + .r-act-total { margin-top: 44px; }
+.r-acts { flex: 1; min-width: 0; margin-left: 64px; }
+.r-act { display: flex; align-items: center; height: 84px; }
+.r-act + .r-act { margin-top: 8px; }
+.r-act .disc { width: 72px; height: 72px; padding: 16px; }
+.r-act .disc.r-p1 { background: var(--p1); color: var(--p1-ink); }
+.r-act .disc.r-p2 { background: var(--p2); color: var(--p2-ink); }
+.r-act-day { flex: none; width: 110px; margin-left: 28px; font-weight: 400; font-size: 36px; color: var(--muted); }
+.r-act-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 46px; }
+.r-act-n { flex: none; width: 190px; text-align: right; font: 600 40px/1 var(--num-font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.r-act-km { color: var(--muted); }
+
+/* Out and about: a route or two drawn on their own on a dark panel, start a ring, end a dot, in the person's colour. */
+.r-routes { display: flex; }
+.r-route { flex: 0 0 auto; width: 840px; }
+.r-route + .r-route { margin-left: 48px; }
+.r-route-map { display: block; width: 840px; height: 575px; padding: 0; border-radius: 40px; background: var(--panel); fill: none; }
+.r-route-map path { stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; }
+.r-route-map.r-p1 path { stroke: var(--p1); }
+.r-route-map.r-p2 path { stroke: var(--p2); }
+.r-route-start { fill: var(--panel); stroke: var(--text); stroke-width: 6; }
+.r-route-end { fill: var(--text); }
+.r-route-name { margin-top: 24px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 44px; }
+.r-route-what { margin-top: 6px; font: 400 36px/1.2 var(--num-font); color: var(--muted); }
+
+/* Energy over time: a bar a week, electricity warm under gas sky, the weeks before faded, last year a thin white tick. */
+.r-echart { display: flex; align-items: flex-end; }
+.r-ecol { flex: 1; min-width: 0; text-align: center; opacity: .5; }
+.r-ecol.r-now { opacity: 1; }
+.r-estack { position: relative; display: flex; flex-direction: column-reverse; align-items: center; justify-content: flex-start; }
+.r-estack > span { flex: none; width: 60%; max-width: 92px; }
+.r-eelec { background: var(--warm); }
+.r-egas { background: var(--accent); }
+/* The stack draws bottom up: its first bar sits on the floor, its last one carries the rounded top. */
+.r-estack > span:first-of-type { border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; }
+.r-estack > span:last-child { border-top-left-radius: 8px; border-top-right-radius: 8px; }
+.r-enone { height: 6px; background: var(--raised-2); border-radius: 3px; }
+.r-ely { position: absolute; left: 12%; right: 12%; height: 0; border-top: 5px solid rgba(244,242,238,.85); }
+.r-evalue { position: absolute; left: -40px; right: -40px; font: 600 44px/1 var(--num-font); white-space: nowrap; }
+.r-ekey { display: flex; margin-top: 30px; font-weight: 400; font-size: 32px; color: var(--muted); }
+.r-ekey span { display: flex; align-items: center; }
+.r-ekey span + span { margin-left: 44px; }
+.r-ekey i { display: inline-block; width: 30px; height: 30px; margin-right: 14px; border-radius: 6px; }
+.r-ekey i.r-ely { position: static; width: 34px; height: 0; border-radius: 0; }
+.r-echartcard .r-line { margin-top: 26px; font-size: 52px; }
+
+/* A record nobody wanted: no sparkles, a warning ring and the headline in the warning colour. */
+.r-badcard .r-mark { color: rgba(255,157,92,.07); }
+.r-warnlabel .disc { background: transparent; box-shadow: inset 0 0 0 5px var(--warn); color: var(--warn); }
+.r-badcard .r-hero-text { color: var(--warn); }
+
+/* What we watched, in detail: the hours and a bar a day on the left, the shows as long bars on the right. */
+.r-watch { display: flex; align-items: flex-start; }
+.r-watch-side { flex: none; width: 640px; }
+.r-watch-side .r-big { margin-top: 0; font-size: 240px; }
+.r-tvdays { display: flex; align-items: flex-end; margin-top: 44px; width: 560px; }
+.r-tvday { flex: 1; text-align: center; }
+.r-tvday span { display: block; width: 34px; margin: 0 auto; border-radius: 6px 6px 2px 2px; background: rgba(244,242,238,.55); }
+.r-tvday p { margin-top: 10px; font-weight: 400; font-size: 28px; color: var(--muted); }
+.r-shows { flex: 1; min-width: 0; margin-left: 72px; }
+.r-show + .r-show { margin-top: 26px; }
+.r-show-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 44px; line-height: 1.15; }
+.r-show-bar { display: flex; align-items: center; margin-top: 10px; }
+.r-show-bar i { flex: none; height: 22px; border-radius: 11px; background: var(--accent); max-width: calc(100% - 170px); }
+.r-show-bar span { flex: none; margin-left: 20px; font: 600 38px/1 var(--num-font); white-space: nowrap; }
+.r-watchcard .r-line { margin-top: 44px; font-size: 48px; color: var(--muted); }
+
+/* A new recipe: its picture large on the left, the name and the facts beside it. */
+.r-recipecard .r-body { display: flex; align-items: center; }
+.r-recipe-pic { flex: none; width: 860px; height: 780px; margin-right: 72px; overflow: hidden; border-radius: 44px; background: var(--raised);
+  box-shadow: 0 26px 60px rgba(0,0,0,.55); }
+.r-recipe-pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.r-recipe-text { flex: 1; min-width: 0; }
+.r-recipe-name { margin-top: 34px; font-size: 96px; line-height: 1.04; letter-spacing: -0.02em;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.r-nopic .r-recipe-name { font-size: 120px; }
+.r-recipecard .r-line { font-size: 52px; color: var(--muted); }
+.r-facts { display: flex; flex-wrap: wrap; margin-top: 36px; }
+.r-facts span { margin: 0 18px 18px 0; padding: 14px 30px; border-radius: 40px; background: var(--panel); font-size: 38px; white-space: nowrap; }
+
+/* Max with the maps of where he went: the cleans above, a floor each side by side under its name. */
+.r-maxfloors .r-body { flex-direction: column; align-items: flex-start; }
+.r-maxfloors .r-max-text { padding-right: 0; }
+.r-maxfloors .r-max-text .r-big { font-size: 130px; margin-top: 12px; }
+.r-maxfloors .r-max-text .r-line { margin-top: 10px; font-size: 44px; }
+.r-floors { display: flex; margin-top: 26px; }
+.r-floor { flex: 0 0 auto; width: 840px; }
+.r-floor + .r-floor { margin-left: 48px; }
+.r-floors .r-map { width: 100%; height: 400px; padding: 22px; transform: none; }
+.r-floors-1 .r-floor { width: 1100px; }
+.r-floor-name { margin-top: 16px; font-size: 38px; color: var(--muted); }
+
+/* Next week with what's on: the forecast, then the events a row each. */
+.r-nextevents .r-forecast .r-day { padding: 18px 0 20px; }
+.r-nextevents .r-day-icon { width: 64px; height: 64px; margin: 8px auto; }
+.r-events { margin-top: 40px; }
+.r-event { display: flex; align-items: center; height: 64px; font-size: 44px; }
+.r-event + .r-event { margin-top: 10px; }
+.r-event-icon { flex: none; width: 48px; height: 48px; color: var(--muted); }
+.r-event-day { flex: none; width: 120px; margin-left: 24px; color: var(--muted); }
+.r-event-time { flex: none; width: 150px; font: 600 40px/1 var(--num-font); font-variant-numeric: tabular-nums; color: var(--muted); }
+.r-event-title { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.r-nextevents .r-line { margin-top: 30px; font-size: 50px; }
+

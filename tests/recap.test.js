@@ -268,3 +268,132 @@ test('reading: a cover shows only when it loaded; the line is the year, else two
   assert.strictEqual(readCard({ current: [{ title: 'C', percent: 140, who: 'alex' }] }).line, '');
   assert.ok(/100%/.test(readCard({ current: [{ title: 'C', percent: 140, who: 'alex' }] }).html));
 });
+
+/* ---------- what we did, and the routes ---------- */
+const find = (s, label, extra) => load().build(Object.assign({ stats: stats(s) }, extra)).find((c) => c.label === label);
+const act = (who, kind, day, date, extra) => Object.assign({ who, kind, name: kind, day, date }, extra);
+
+test('what we did: rows oldest first, totals worked out when not given, and the overflow said', () => {
+  const items = [act('sam', 'run', 'Wed', '2026-10-21', { minutes: 30, km: 5 }), act('alex', 'gym', 'Mon', '2026-10-19', { minutes: 60 }),
+    act('alex', 'walk', 'Tue', '2026-10-20', { minutes: 45, km: 3.25 })];
+  const card = find({ activities: { items } }, 'What we did');
+  assert.ok(card.html.indexOf('Mon') < card.html.indexOf('Tue') && card.html.indexOf('Tue') < card.html.indexOf('Wed'), 'sorted by date');
+  assert.ok(card.html.includes('1h 45m · 3.3 km'), 'Alex: 105 min and 3.25 km, km to one place');
+  assert.ok(card.html.includes('30 min · 5 km'));
+  assert.strictEqual(card.sub, '');
+  const many = Array.from({ length: 9 }, (_, n) => act('sam', 'run', 'Mon', '2026-10-1' + n));
+  assert.strictEqual(find({ activities: { items: many } }, 'What we did').sub, 'And 2 more');
+});
+
+test('what we did: an item needs a known person, a day and a name or kind; given totals win', () => {
+  assert.strictEqual(find({ activities: { items: [act('kim', 'run', 'Mon', '2026-10-19'), { who: 'alex', kind: 'run' }] } }, 'What we did'), undefined);
+  assert.strictEqual(find({ activities: { items: [] } }, 'What we did'), undefined);
+  const card = find({ activities: { items: [act('alex', 'run', 'Mon', '2026-10-19')], totals: { alex: { count: 3, minutes: 90, km: 12 } } } }, 'What we did');
+  assert.ok(card.html.includes('>3<span class="r-side-unit">activities') && card.html.includes('1h 30m · 12 km'));
+  assert.ok(!card.html.includes('r-who r-p2'), 'nobody with nothing done');
+});
+
+test('routePath: fits the box, keeps north up and the shape, null without two usable points', () => {
+  const R = load();
+  const r = R.routePath([[51.5, -0.1], [51.51, -0.1], [51.51, -0.08]], 800, 500, 40);
+  const xy = (p) => p.split(/[ML]/).filter(Boolean).map((q) => q.split(',').map(Number));
+  const pts = xy(r.d);
+  pts.forEach(([x, y]) => assert.ok(x >= 39.9 && x <= 760.1 && y >= 39.9 && y <= 460.1, 'inside the padding: ' + x + ',' + y));
+  assert.ok(pts[1][1] < pts[0][1], 'north is up');
+  assert.ok(pts[2][0] > pts[1][0], 'east is right');
+  const wide = (pts[2][0] - pts[1][0]) / (pts[0][1] - pts[1][1]);
+  assert.ok(Math.abs(wide - 0.02 * Math.cos(51.505 * Math.PI / 180) / 0.01) < 0.01, 'longitude shrunk by the latitude');
+  assert.deepStrictEqual(Array.from(r.start), pts[0]);
+  assert.strictEqual(R.routePath([[51.5, -0.1]], 800, 500, 40), null);
+  assert.strictEqual(R.routePath([[51.5, -0.1], [51.5, -0.1]], 800, 500, 40), null);
+  assert.strictEqual(R.routePath([['a', 1], null, [51.5, -0.1]], 800, 500, 40), null);
+});
+
+test('out and about: only with a route, two at most, the longest first', () => {
+  const loop = (d) => [[51.5, -0.1], [51.5 + d, -0.1], [51.5 + d, -0.1 + d], [51.5, -0.1]];
+  assert.strictEqual(find({ activities: { items: [act('alex', 'run', 'Mon', '2026-10-19', { km: 5 })] } }, 'Out and about'), undefined);
+  const items = [act('alex', 'walk', 'Mon', '2026-10-19', { name: 'Short', km: 2, route: loop(0.01) }),
+    act('sam', 'run', 'Tue', '2026-10-20', { name: 'Long', km: 10, route: loop(0.02) }),
+    act('alex', 'cycle', 'Wed', '2026-10-21', { name: 'Middle', km: 6, route: loop(0.03) })];
+  const card = find({ activities: { items } }, 'Out and about');
+  assert.ok(card.html.indexOf('Long') < card.html.indexOf('Middle') && !card.html.includes('Short'));
+});
+
+/* ---------- what we watched ---------- */
+test('what we watched: the detail with two shows or three days, else the plain card', () => {
+  const plain = find({ watched: { hours: 12, top: [{ title: 'The Bear' }] } }, 'What we watched');
+  assert.strictEqual(plain.value, 12);
+  assert.strictEqual(plain.line, 'Mostly The Bear');
+  const w = { hours: 20, top: [{ title: 'A', hours: 6 }, { title: 'B', hours: 3 }], inputs: [{ name: 'Shield', hours: 15 }, { name: 'PS5', hours: 4.5 }],
+              apps: [{ name: 'Netflix', hours: 9 }] };
+  const detail = find({ watched: w }, 'What we watched');
+  assert.ok(detail.html.includes('r-shows') && detail.html.includes('6 h'));
+  assert.strictEqual(detail.line, 'Shield 15 h · PS5 4½ h', 'inputs when there are two, else apps');
+  const one = Object.assign({}, w, { inputs: [{ name: 'Shield', hours: 15 }] });
+  assert.strictEqual(find({ watched: one }, 'What we watched').line, 'Netflix 9 h');
+  const days = find({ watched: { hours: 9, days: [{ day: 'Mon', hours: 2 }, { day: 'Tue', hours: 3 }, { day: 'Wed', hours: 4 }] } }, 'What we watched');
+  assert.ok(days.html.includes('r-tvdays'));
+});
+
+/* ---------- new recipes ---------- */
+test('new recipes: a card each for the first-time ones, three at most, the picture when it loaded', () => {
+  const recipes = [{ name: 'Chana masala', image: '/a.jpg', minutes: 40, servings: 4, source: 'BBC Good Food', day: 'Tuesday', first: true },
+    { name: 'Old favourite', first: false }, { name: 'Pad Thai', had: 2, first: true }, { name: 'C', first: true }, { name: 'D', first: true }];
+  const cards = load().build({ stats: stats({ food: { recipes } }), pictures: { '/a.jpg': 'http://ha/a.jpg' } }).filter((c) => c.label === 'New recipe');
+  assert.strictEqual(cards.length, 3);
+  assert.ok(cards[0].body.includes('http://ha/a.jpg') && cards[0].body.includes('First time · Tuesday'));
+  assert.ok(cards[0].body.includes('40 min') && cards[0].body.includes('Serves 4') && cards[0].body.includes('BBC Good Food'));
+  assert.ok(cards[1].cls.includes('r-nopic') && cards[1].body.includes('had 2 times'));
+  assert.ok(!JSON.stringify(cards).includes('Old favourite'));
+});
+
+/* ---------- energy over time, and records ---------- */
+const series = (n) => ({ labels: Array.from({ length: n }, (_, k) => 'W' + (30 + k)), elec: Array(n).fill(15), gas: Array(n).fill(5) });
+test('energy over time: four weeks with a figure at least, twelve shown at most, the change in a line', () => {
+  assert.strictEqual(find({ energy: { week_cost: 20, series: series(3) } }, 'Energy over time'), undefined);
+  const s = series(14);
+  s.elec[13] = 25;
+  const card = find({ energy: { week_cost: 30, series: s } }, 'Energy over time');
+  assert.strictEqual((card.html.match(/r-ecol/g) || []).length, 12);
+  assert.ok(!card.html.includes('>W30<') && card.html.includes('>W43<'));
+  assert.strictEqual(card.line, '£30.00 this week, 50% more than the week before');
+  assert.ok(!card.html.includes('Same week last year'), 'no key for a missing last year');
+  assert.ok(find({ energy: { week_cost: 20 } }, 'Energy'), 'the old card stays');
+});
+
+test('a bad record is said plainly, with no sparkles; a good one still celebrates', () => {
+  const records = [{ text: '£38.76 on energy: the priciest week in 22 weeks', tone: 'bad' }, { text: '11,430 steps: best since August' }];
+  const cards = load().build({ stats: stats({ records }) });
+  const bad = cards.find((c) => c.label === 'Worth knowing'), good = cards.find((c) => c.label === 'New record');
+  assert.ok(bad.body.includes('>The priciest week in 22 weeks<') && bad.body.includes('£38.76 on energy'));
+  assert.ok(!bad.before, 'no burst');
+  assert.ok(good.before && good.body.includes('11,430 steps'));
+  assert.strictEqual(find({ records: [records[0]] }, 'New record'), undefined);
+});
+
+/* ---------- the vacuum's maps ---------- */
+test('the vacuum shows its floors when their pictures loaded, else the one map', () => {
+  const vacuum = { name: 'Max', cleans: 2, maps: [{ floor: 'Downstairs', picture: '/d.png', when: 'Tue 22:53', m2: 23 }, { floor: 'Upstairs', picture: '/u.png' }] };
+  const two = find({ vacuum }, 'Max’s week', { pictures: { '/d.png': 'http://d', '/u.png': 'http://u' } });
+  assert.ok(two.body.includes('r-floors-2') && two.body.includes('Downstairs · Tue 22:53 · 23 m²'));
+  const one = find({ vacuum }, 'Max’s week', { pictures: { '/u.png': 'http://u' } });
+  assert.ok(one.body.includes('r-floors-1') && !one.body.includes('Downstairs'));
+  const none = find({ vacuum }, 'Max’s week', { vacuumMap: 'http://map' });
+  assert.ok(!none.body.includes('r-floors') && none.body.includes('http://map'));
+});
+
+/* ---------- next week ---------- */
+test('next week: events and the bins in day order, and the card shows with events alone', () => {
+  const next = { events: [{ day: 'Sat', time: '10:00', title: 'Boiler' }, { day: 'Tue', time: '18:30', title: 'Dinner' }, { day: 'Tue', title: 'Birthday' }],
+                 bins: { day: 'Monday', what: 'Garden' } };
+  const card = find({ next_week: next }, 'Next week');
+  const at = (t) => card.html.indexOf(t);
+  assert.ok(at('Garden bin') < at('Birthday') && at('Birthday') < at('Dinner') && at('Dinner') < at('Boiler'), card.html);
+  assert.strictEqual(find({ next_week: { bins: { day: 'Monday' } } }, 'Next week'), undefined, 'bins alone are not a card');
+});
+
+test('a week without restless, goals or house_says still builds', () => {
+  const labels_ = labels(load().build({ stats: stats({ restless: null, goals: null, house_says: null, records: [{ text: 'A: b' }] }) }));
+  assert.ok(!labels_.includes('Up in the night') && !labels_.includes('The house says'));
+  assert.ok(labels_.includes('Energy'));
+});
