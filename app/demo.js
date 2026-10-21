@@ -4,18 +4,14 @@
   'use strict';
 
   var config = {
-    title: 'House',
+    title: 'Living room',
     locale: 'en-GB',
     lights: [
-      { name: 'Living room', entity: 'light.living_room' },
+      { name: 'Ceiling', entity: 'light.living_room' },
+      { name: 'Fireplace', entity: 'light.fireplace', icon: 'floorLampOutline' },
+      { name: 'Side lamp', entity: 'light.side_lamp', icon: 'lampOutline' },
       { name: 'Kitchen', entity: 'light.kitchen' },
       { name: 'Hallway', entity: 'light.hallway' },
-      { name: 'Bedroom', entity: 'light.bedroom' },
-      { name: 'Study', entity: 'light.study' },
-    ],
-    tiles: [
-      { name: 'Warm living room', sub: 'For 2 hours', icon: 'radiator', toast: 'Warming the living room for 2 hours',
-        action: { service: 'script.turn_on', target: { entity_id: 'script.warm_living_room' } } },
     ],
     door: 'binary_sensor.front_door',
     tv: {
@@ -27,13 +23,25 @@
       ],
       wide: { name: 'Movie time', icon: 'movieOpenPlay', toast: 'Movie time', action: { service: 'scene.turn_on', target: { entity_id: 'scene.movie_time' } } },
     },
+    scenes: [
+      { name: 'Bright', icon: 'brightness7', action: { service: 'light.turn_on', target: { entity_id: 'light.living_room' }, data: { brightness_pct: 100 } } },
+      { name: 'Relax', icon: 'sofaOutline', action: { service: 'light.turn_on', target: { entity_id: 'light.living_room' }, data: { brightness_pct: 45 } } },
+      { name: 'Cinema', icon: 'movieOpenOutline', entity: 'input_boolean.cinema',
+        action: { service: 'input_boolean.toggle', target: { entity_id: 'input_boolean.cinema' } } },
+      { name: 'Lamps', icon: 'lampOutline', action: { service: 'light.turn_on', target: { entity_id: ['light.fireplace', 'light.side_lamp'] } } },
+      { name: 'Off', icon: 'power', action: { service: 'light.turn_off', target: { entity_id: ['light.living_room', 'light.fireplace', 'light.side_lamp'] } } },
+    ],
+    warmth: { temperature: 'sensor.living_room_temperature', climate: 'climate.living_room',
+              action: { name: 'Warm now', icon: 'fire', toast: 'Warming the living room for 2 hours',
+                        service: 'script.turn_on', target: { entity_id: 'script.warm_living_room' } } },
     music: {
       title: 'Home speakers',
       player: 'media_player.home_speakers',
       extra: { name: 'Evening mix', icon: 'playlist', toast: 'Playing the evening mix',
                action: { service: 'script.turn_on', target: { entity_id: 'script.evening_mix' } } },
-      toggle: { name: 'TV joins the speakers', entity: 'input_boolean.tv_in_speaker_group', on: 'Joins when music plays', off: 'Stays out' },
     },
+    notices: { entity: 'sensor.notices', room: 'living_room', dismiss: { service: 'script.notice_dismiss' } },
+    lists: [{ name: 'Shopping', entity: 'todo.shopping', aisles: 'sensor.aisles' }],
     people: [
       { name: 'Alex', person: 'person.alex', room: 'sensor.alex_room' },
       { name: 'Sam', person: 'person.sam', room: 'sensor.sam_room',
@@ -41,21 +49,21 @@
     ],
     guests: { entity: 'input_boolean.guests' },
     status: [
-      { entity: 'sensor.heating', text: '{value}' },
+      { entity: 'sensor.living_room_temperature', text: '{value}°' },
       { entity: 'sensor.parcels', attribute: 'items', filter: { today: true, status: ['expected', 'out_for_delivery'] },
         text: '{value} parcel coming', hide: ['0'] },
     ],
     recap: { stats: 'sensor.week_stats' },
     glance: [
       { entity: 'sensor.dinner_tonight', icon: 'silverwareForkKnife', text: 'Tonight · {value}' },
-      { entity: 'todo.shopping', icon: 'cartOutline', text: 'Shopping · {value}', hide: ['0'] },
+      { entity: 'todo.shopping', icon: 'cartOutline', text: 'Shopping · {value}', hide: ['0'], open: 'list:0' },
       { entity: 'sensor.bins_next', icon: 'trashCanOutline', text: '{attr.summary} {day}', within_days: 1 },
     ],
     glance_max: 2,
     quick: [
-      { name: 'Pause', sub: 'The streamer', icon: 'pause', toast: 'Paused', visible: { entity: 'media_player.streamer', states: ['playing'] },
+      { name: 'Pause', icon: 'pause', toast: 'Paused', visible: { entity: 'media_player.streamer', states: ['playing'] },
         action: { service: 'media_player.media_pause', target: { entity_id: 'media_player.streamer' } } },
-      { name: 'Lights up', sub: 'Living room to 40%', icon: 'lightbulbOn', toast: 'Lights up', visible: { entity: 'media_player.streamer', states: ['playing', 'paused'] },
+      { name: 'Lights up', icon: 'lightbulbOn', toast: 'Lights up', visible: { entity: 'media_player.streamer', states: ['playing', 'paused'] },
         action: { service: 'light.turn_on', target: { entity_id: 'light.living_room' }, data: { brightness_pct: 40 } } },
     ],
     footer: [
@@ -66,23 +74,32 @@
 
   var states = {
     'light.living_room': { s: 'on', a: { brightness: 166 } },
+    'light.fireplace': { s: 'on', a: { brightness: 140 } },
+    'light.side_lamp': { s: 'off' },
     'light.kitchen': { s: 'on', a: { brightness: 255 } },
     'light.hallway': { s: 'off' },
-    'light.bedroom': { s: 'off' },
-    'light.study': { s: 'on', a: { brightness: 102 } },
     'binary_sensor.front_door': { s: 'off' },
     'sensor.tv_source': { s: 'Streamer', a: { line: 'Streamer · The Bear, S3 E4' } },
+    'input_boolean.cinema': { s: 'off' },
+    'sensor.living_room_temperature': { s: '18.3' },
+    'climate.living_room': { s: 'heat', a: { current_temperature: 18.3, temperature: 20, hvac_action: 'heating' } },
     'media_player.home_speakers': { s: 'playing', a: { media_title: 'Strawberry Letter 23', media_artist: 'The Brothers Johnson' } },
-    'input_boolean.tv_in_speaker_group': { s: 'on' },
     'person.alex': { s: 'home' },
     'sensor.alex_room': { s: 'study' },
     'person.sam': { s: 'home' },
     'sensor.sam_room': { s: 'kitchen' },
     'sensor.dinner_tonight': { s: 'Chicken katsu curry' },
-    'todo.shopping': { s: '8' },
+    'todo.shopping': { s: '9' },
+    'sensor.aisles': { s: 'ok', a: { aisles: { cupboard: ['coconut milk'], dairy: ['oat milk'] } } },
+    'sensor.notices': { s: 'ok', a: { items: [
+      { id: 'n1', title: 'Living room lights on', message: 'Fireplace, ceiling · nobody there since 21:02', icon: 'mdi:lightbulb-group',
+        level: 'info', rooms: ['living_room'], at: '2026-10-21T21:02:00+01:00',
+        action: { label: 'Lights off', service: 'light.turn_off', data: { entity_id: ['light.living_room', 'light.fireplace'] } } },
+      { id: 'n2', title: 'Max is stuck', message: 'Under the sofa · since 20:15', icon: 'mdi:robot-vacuum', level: 'warn',
+        rooms: ['living_room'], at: '2026-10-21T20:15:00+01:00', action: null },
+    ] } },
     'media_player.streamer': { s: 'playing' },
     'sensor.bins_next': { s: tomorrow(), a: { summary: 'Recycling' } },
-    'sensor.heating': { s: 'Heating to 20°' },
     'sensor.parcels': { s: '3', a: { items: [
       { name: 'Running shoes', today: true, status: 'out_for_delivery' },
       { name: 'Coffee beans', today: true, status: 'delivered' },
@@ -91,6 +108,9 @@
     'sensor.sam_gym': { s: 'ok', a: { trained_today: true } },
     'input_boolean.guests': { s: 'off' },
   };
+  var lists = { 'todo.shopping': [
+    'Bananas', 'Spring onions', 'Coconut milk', 'Oat milk', 'Eggs', 'Chicken thighs', 'Sourdough', 'Washing up liquid', 'PL kabanosy',
+  ].map(function (name, n) { return { uid: 'i' + n, summary: name, status: 'needs_action' }; }) };
   function tomorrow() {
     var t = new Date(); t.setDate(t.getDate() + 1);
     return t.getFullYear() + '-' + ('0' + (t.getMonth() + 1)).slice(-2) + '-' + ('0' + t.getDate()).slice(-2);
@@ -189,6 +209,7 @@
   window.HOUSE_DEMO = {
     config: config,
     states: states,
+    lists: lists,
     recap: recap,
     clock: '20:41',
     nextEvent: function () { var t = new Date(); t.setDate(t.getDate() + 1); t.setHours(18, 30, 0, 0); return { start: t, allDay: false, title: 'Dinner with Jo and Priya' }; },

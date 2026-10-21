@@ -23,44 +23,36 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: non
 button:focus { outline: none; }
 svg { display: block; width: 100%; height: 100%; fill: currentColor; }
 
-/* 5% overscan-safe margins. */
-#house { position: relative; display: flex; flex-direction: column; width: 100%; height: 100%; padding: 50px 96px 46px; }
-#house > * + * { margin-top: 24px; }
-#house[aria-busy='true'] .layout, #house[aria-busy='true'] .bottom #idle { opacity: .55; }
+/* 5% overscan-safe margins. The home screen follows the house's tablet room page (Lamplight): a header with the room's line,
+   one notice, the TV as the hero, then scenes, the lamps, warmth and the speakers. */
+#house { position: relative; display: flex; flex-direction: column; width: 100%; height: 100%; padding: 46px 96px 44px; }
+#house > * + * { margin-top: 22px; }
+#house[aria-busy='true'] .layout { opacity: .55; }
 
-.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; }
-/* The next event and the status line run the full width under the title and the clock, clear of the chips. */
-.top > .next { flex: 0 0 100%; }
-h1 { font-size: 56px; line-height: 1; }
-#date, .next { margin-top: 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 400; font-size: 30px; color: var(--muted); }
-.next { margin-top: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.top { display: flex; align-items: center; justify-content: space-between; }
+h1 { font-size: 56px; line-height: 1.05; }
 .title { flex: 1 1 auto; min-width: 0; margin-right: 32px; }
-.glance { flex: none; }
-.chip { white-space: nowrap; }
-.person .initial { display: grid; place-items: center; padding: 0; font-size: 28px; font-weight: 600; }
-.person .where { font-weight: 400; color: var(--muted); }
-.person.out .initial { background: transparent; box-shadow: inset 0 0 0 3px var(--raised-2); color: var(--muted); }
-.glance { display: flex; align-items: center; }
-#clock { font: 600 76px/1 var(--num-font); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
-.chip { display: flex; align-items: center; min-height: 76px; padding: 8px 28px 8px 8px;
+.title .sub { margin-top: 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.glance { display: flex; flex: none; align-items: center; }
+#clock { font: 600 80px/1 var(--num-font); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+.chip { display: flex; align-items: center; min-height: 76px; padding: 8px 28px 8px 8px; white-space: nowrap;
   border-radius: 40px; background: var(--panel); font-size: 30px; }
 .chip .disc { width: 60px; height: 60px; padding: 14px; }
 .chip.open { background: var(--warn-ground); color: var(--warn); }
 .chip.open .disc { background: transparent; box-shadow: inset 0 0 0 3px var(--warn); color: var(--warn); }
-.glance .chip { max-width: 520px; }
+.glance .chip { max-width: 500px; }
 .glance .chip > span:last-child { overflow: hidden; text-overflow: ellipsis; }
-.next .ask { color: var(--accent); }
-
 #chips { display: flex; }
-#chips > * + * { margin-left: 20px; }
+#chips > * + * { margin-left: 18px; }
+.person .initial { display: grid; place-items: center; padding: 0; font-size: 28px; font-weight: 600; }
+.person .where { font-weight: 400; color: var(--muted); }
+.person.out .initial { background: transparent; box-shadow: inset 0 0 0 3px var(--raised-2); color: var(--muted); }
 
 #banner { padding: 16px 28px; border-radius: 24px; background: var(--error-ground); color: var(--error-text);
   border: 2px solid rgba(255,138,128,.45); font-size: 30px; }
 
-.layout { flex: 1; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); column-gap: 40px; min-height: 0; transition: opacity .2s ease-out; }
-section { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
-h2 { font-size: 36px; line-height: 1.15; margin-bottom: 16px; }
 .sub { font-weight: 400; font-size: 30px; color: var(--muted); }
+section { min-width: 0; }
 
 /* Discs: the House signature. Filled warm + halo means on, and only on. */
 .disc { display: block; flex: none; width: 84px; height: 84px; padding: 21px; border-radius: 50%;
@@ -68,88 +60,133 @@ h2 { font-size: 36px; line-height: 1.15; margin-bottom: 16px; }
 .ico { display: inline-block; flex: none; width: 44px; height: 44px; }
 .ico.warm { color: var(--warm); }
 
-/* Lights: a 2×3 grid of room tiles. */
-/* minmax(0, 1fr): with the quick actions as a fourth row, the rows share the height instead of growing past it. */
-.rooms { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-auto-rows: minmax(0, 1fr); gap: 22px; min-height: 0; }
-.tile { position: relative; display: grid; grid-template-columns: auto 1fr; grid-template-rows: 1fr 1fr;
-  column-gap: 24px; align-items: center; padding: 22px 28px; border-radius: 30px; background: var(--panel); }
-.tile .disc { grid-row: 1 / 3; }
-.tile .name { align-self: end; font-size: 34px; line-height: 1.15; min-width: 0; }
-.tile .state { align-self: start; font-weight: 400; font-size: 30px; color: var(--muted); }
-.tile.on { background: radial-gradient(120% 100% at 0% 0%, rgba(var(--warm-rgb), .30), rgba(var(--warm-rgb), 0) 62%), var(--panel); }
-.tile.on .disc, .row.on .disc { background: var(--warm); color: var(--warm-ink); box-shadow: 0 0 22px rgba(var(--warm-rgb), .45); }
-.tile.on .state { color: var(--warm); }
+/* The notice row: the room's most urgent notice, its action and Not now; a warning's disc is outlined, never filled. */
+.notice { display: flex; align-items: center; padding: 16px 16px 16px 18px; border-radius: 40px; background: var(--panel); }
+.notice .disc { width: 76px; height: 76px; padding: 19px; background: var(--warm); color: var(--warm-ink); }
+.notice.warn .disc, .notice.alert .disc { background: transparent; box-shadow: inset 0 0 0 3px var(--warn); color: var(--warn); }
+.notice.alert .disc { box-shadow: inset 0 0 0 3px var(--alert); color: var(--alert); }
+.notice .text { display: flex; flex: 1; flex-direction: column; min-width: 0; margin: 0 24px; }
+.notice .name { font-size: 32px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.notice .sub { font-size: 28px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#notice-acts { display: flex; flex: none; }
+#notice-acts > * + * { margin-left: 16px; }
+.notice .pill { height: 76px; }
 
-.side { display: grid; grid-template-rows: auto 1fr; row-gap: 22px; min-height: 0; }
-.side section { padding: 22px 28px 24px; border-radius: 30px; background: var(--panel); }
-.side h2 { margin-bottom: 2px; }
-.tv .head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
-.tv .head h2 { margin: 0; }
+.layout { flex: 1; display: grid; grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr); column-gap: 24px; min-height: 0;
+  transition: opacity .2s ease-out; }
+.card { border-radius: 36px; background: var(--panel); }
 
+/* The TV: what's on, big, then any quick action, the sources and the wide button. */
+.tv { display: flex; flex-direction: column; min-height: 0; padding: 26px 28px 28px; }
+.tv .head { display: flex; align-items: center; }
+.tv .head .text { display: flex; flex-direction: column; min-width: 0; margin-left: 22px; }
+.tv .head .name { font-size: 34px; }
+.tv .head .sub { font-size: 28px; }
+.tv .hero { flex: 1; margin: 22px 0 18px; font-size: 52px; line-height: 1.1; overflow: hidden; }
+.quick { display: flex; }
+.quick:empty { display: none; }
+.quick > * + * { margin-left: 16px; }
+.quick + .segments { margin-top: 18px; }
 
 /* Source switch: selection is sky (the Sky Rule), never warm. */
 .segments { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 8px; padding: 8px; border-radius: 46px; background: var(--raised); }
 .seg { display: flex; align-items: center; justify-content: center; height: 80px; border-radius: 40px; font-size: 32px; }
 .seg.selected { background: var(--accent); color: var(--accent-ink); }
 .pill { display: inline-flex; align-items: center; height: 84px; padding: 0 40px 0 32px;
-  border-radius: 42px; background: var(--raised-2); font-size: 32px; }
+  border-radius: 42px; background: var(--raised-2); font-size: 32px; white-space: nowrap; }
 .pill.wide { width: 100%; margin-top: 16px; justify-content: center; }
+.grow { flex: 1; justify-content: center; }
 .round { display: flex; align-items: center; justify-content: center; flex: none; width: 84px; height: 84px; border-radius: 50%; background: var(--raised-2); }
 
-.music { display: flex; flex-direction: column; }
-.music .now { margin: 6px 0 16px; min-height: 80px; }
-.track { font-size: 36px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.music .sub { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.transport { display: flex; margin-bottom: 16px; }
-.grow { flex: 1; justify-content: center; }
-.row { display: flex; align-items: center; margin-top: auto; padding: 10px 22px 10px 10px; border-radius: 30px; background: var(--raised); }
-.row .disc { width: 72px; height: 72px; padding: 18px; }
-.row .text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.row .name { font-size: 30px; }
-.row .state { font-weight: 400; font-size: 28px; color: var(--muted); }
-.switch { position: relative; flex: none; width: 104px; height: 60px; border-radius: 30px; background: var(--raised-2); }
-.switch span { position: absolute; top: 8px; left: 8px; width: 44px; height: 44px; border-radius: 50%; background: var(--muted); transition: transform .15s ease-out; }
-.row.on .switch { background: var(--warm); }
-.row.on .switch span { transform: translateX(44px); background: var(--warm-ink); }
+.side { display: flex; flex-direction: column; min-height: 0; }
+.side > * + * { margin-top: 22px; }
+
+/* Scenes: one row of labelled buttons; the one that's on is sky. */
+.scenes { display: flex; flex: none; padding: 10px; }
+.scenes > * + * { margin-left: 8px; }
+.scene { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; height: 108px;
+  border-radius: 28px; font-size: 28px; }
+.scene .ico { width: 42px; height: 42px; margin-bottom: 6px; }
+.scene.selected { background: var(--accent); color: var(--accent-ink); }
+
+/* The lamps and any action tiles: three across, the rows sharing what's left. */
+.tiles { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 22px; min-height: 0; }
+.tile { position: relative; display: flex; align-items: center; min-height: 0; padding: 16px 22px 16px 18px; border-radius: 32px; background: var(--panel); }
+.tile .disc { width: 72px; height: 72px; padding: 18px; margin-right: 20px; }
+.tile .text { display: flex; flex-direction: column; min-width: 0; }
+.tile .name { font-size: 31px; line-height: 1.15; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.tile .state { font-weight: 400; font-size: 27px; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.tile.on { background: radial-gradient(120% 100% at 0% 0%, rgba(var(--warm-rgb), .30), rgba(var(--warm-rgb), 0) 62%), var(--panel); }
+.tile.on .disc { background: var(--warm); color: var(--warm-ink); box-shadow: 0 0 22px rgba(var(--warm-rgb), .45); }
+.tile.on .state { color: var(--warm); }
+
+/* The speakers: what's playing, then play or pause, next and the playlist. */
+.music { display: flex; flex: none; align-items: center; padding: 18px 22px 18px 28px; }
+.music .text { flex: 1; min-width: 0; margin-right: 20px; }
+.music .sub { font-size: 26px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.track { font-size: 34px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.transport { display: flex; flex: none; }
+.transport > * + * { margin-left: 14px; }
+.transport .pill { padding: 0 32px 0 26px; }
 
 .bottom { display: flex; align-items: center; }
 .bottom .pill, .bottom .chip { flex: none; white-space: nowrap; }
+#week.ready { background: var(--accent); color: var(--accent-ink); }
 /* People give way first when a note makes the footer too long. */
-#people { flex: 0 1 auto; min-width: 0; }
+#people { display: flex; flex: 0 1 auto; align-items: center; min-width: 0; }
+#people > * + * { margin-left: 20px; }
 .bottom .person { flex: 0 1 auto; min-width: 0; }
 .person > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* The two-tap arm for risky actions: the first press arms it red for 5 s, the second runs it. */
 .armed, .armed:focus { background: var(--alert) !important; color: #2b0a07; filter: none !important; }
 .armed .ico.warm { color: inherit; }
 
+/* A list on the whole screen, by aisle in columns; a ticked item is struck through with its Undo until it goes. */
+.sheet { position: fixed; top: 0; left: 0; display: flex; flex-direction: column; width: 1920px; height: 1080px; padding: 50px 96px 44px; background: var(--page); }
+.sheet-head { display: flex; align-items: baseline; }
+.sheet-head h2 { font-size: 56px; line-height: 1.05; }
+.sheet-head .sub { margin-left: 28px; }
+.sheet-body { flex: 1; min-height: 0; margin-top: 28px; overflow-y: auto; column-count: 3; column-gap: 28px; padding: 14px; }
+.sheet-body::-webkit-scrollbar { display: none; }
+.aisle { break-inside: avoid; margin-bottom: 26px; }
+.aisle h3 { display: flex; align-items: center; margin: 0 0 10px 6px; font-size: 28px; font-weight: 600; color: var(--muted); }
+.aisle h3 .ico { width: 34px; height: 34px; margin-right: 12px; }
+.item { display: flex; align-items: center; width: 100%; min-height: 80px; margin-bottom: 10px; padding: 10px 24px 10px 16px;
+  border-radius: 28px; background: var(--panel); font-size: 34px; }
+.item .box { display: block; flex: none; width: 52px; height: 52px; margin-right: 20px; padding: 9px; border-radius: 50%;
+  box-shadow: inset 0 0 0 3px var(--raised-2); color: transparent; }
+.item .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item.ticked .box { background: var(--warm); box-shadow: none; color: var(--warm-ink); }
+.item.ticked .label { color: var(--muted); text-decoration: line-through; }
+.item .undo { flex: none; margin-left: 16px; padding: 6px 20px; border-radius: 24px; background: var(--raised-2); font-size: 26px; }
+.sheet-hint { margin-top: 16px; font-size: 26px; }
+
 /* Focus is the whole interface on a remote: sky ring, a lift, and a brighter ground. */
-.tile, .seg, .pill, .round, .row { transition: transform .12s ease-out, box-shadow .12s ease-out, background-color .12s ease-out; }
-.tile:focus, .seg:focus, .pill:focus, .round:focus, .row:focus {
+.tile, .seg, .pill, .round, .scene, .chip, .item { transition: transform .12s ease-out, box-shadow .12s ease-out, background-color .12s ease-out; }
+.tile:focus, .seg:focus, .pill:focus, .round:focus, .scene:focus, button.chip:focus, .item:focus {
   box-shadow: 0 0 0 6px var(--page), 0 0 0 12px var(--accent), 0 14px 36px rgba(0,0,0,.55); transform: scale(1.03); }
-.pill:focus, .round:focus, .seg:focus:not(.selected) { background: var(--raised-2); filter: brightness(1.25); }
+.pill:focus:not(.armed):not(#week.ready), .round:focus, .seg:focus:not(.selected), .scene:focus:not(.selected), button.chip:focus, .item:focus { filter: brightness(1.25); }
+.item:focus { transform: scale(1.02); }
 [disabled] { opacity: .45; }
 [aria-busy='true'] { opacity: .7; }
 
 /* Bottom right, in the footer's empty side: on the TV the top carries the door chip and the clock. */
-#toast { position: absolute; bottom: 46px; right: 96px; max-width: 1040px; padding: 20px 40px;
+#toast { position: absolute; bottom: 44px; right: 96px; max-width: 1040px; padding: 20px 40px;
   border-radius: 44px; background: var(--toast-ground); border: 2px solid rgba(255,255,255,.12);
   box-shadow: 0 10px 30px rgba(0,0,0,.5); font-size: 32px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #toast.error { background: var(--error-ground); border-color: rgba(255,138,128,.45); color: var(--error-text); }
-/* Only the last ten seconds say anything about closing; the footer is busy enough. */
-#idle { position: absolute; bottom: 150px; right: 96px; padding: 16px 32px; border-radius: 40px; background: var(--warn-ground);
+/* Only the last ten seconds say anything about closing. */
+#idle { position: fixed; bottom: 150px; right: 96px; padding: 16px 32px; border-radius: 40px; background: var(--warn-ground);
   color: var(--warn); font-size: 30px; white-space: nowrap; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
 /* Chromium 79 has no flex gap (Chrome 84+): sibling margins instead. */
-.glance > * + * { margin-left: 20px; }
-.glance > #clock { margin-left: 36px; }
+.glance > * + * { margin-left: 18px; }
+.glance > #clock { margin-left: 34px; }
 .chip > * + * { margin-left: 16px; }
 .seg > .ico { margin-right: 14px; }
 .pill > .ico { margin-right: 16px; }
-.transport > * + * { margin-left: 18px; }
-.row > * + * { margin-left: 24px; }
-.row .text > * + * { margin-top: 4px; }
 .bottom > * + * { margin-left: 20px; }
 
 /* Week recap, Wrapped-style: one idea per card, a hero number or picture and at most one line, read from the sofa.
@@ -404,7 +441,3 @@ h2 { font-size: 36px; line-height: 1.15; margin-bottom: 16px; }
 .r-guess-verdict { margin-top: 30px; }
 .r-guess-answer { font-size: 180px; }
 .r-guesscard .r-line { margin-top: 10px; }
-
-/* People chips sit in one wrapper so the list can come from the config. */
-#people { display: flex; align-items: center; }
-#people > * + * { margin-left: 20px; }
