@@ -37,7 +37,7 @@ arrow keys and Enter; add `&recap` to the URL for the week recap, or `&theme=aft
 - A Home Assistant user for the TV. Make it non-admin, ideally "local access only", and create a long-lived access
   token for it from its profile page.
 
-> **Status:** an earlier private build of this app runs every day on a rooted 2021 C1. Versions 1.1 to 1.3 have only
+> **Status:** an earlier private build of this app runs every day on a rooted 2021 C1. Versions 1.1 to 1.4 have only
 > run in the browser demo and the tests so far. The public package, `ares-install`, the Developer Mode SSH push and
 > launching by `io.github.haydengriffin.house` haven't been tried on a TV yet. Reports either way are very welcome.
 
@@ -51,7 +51,7 @@ config goes onto the TV separately, next to the installed app.
    ```bash
    python3 tools/package.py
    ares-setup-device            # once, to add the TV
-   ares-install -d <tv> dist/io.github.haydengriffin.house_1.3.0_all.ipk
+   ares-install -d <tv> dist/io.github.haydengriffin.house_1.4.0_all.ipk
    ```
 
 2. Copy `config.example.json` to `config.json` and fill in the websocket URL, the token and your entities. Everything
