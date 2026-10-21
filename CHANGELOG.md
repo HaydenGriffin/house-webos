@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.5.0
+
+- Home follows the house's living-room tablet: the room's name and a short line, one notice row (`notices`) with its
+  actions, the TV as the main card (what's on, quick actions, sources, Movie time), a `scenes` row, lamp tiles with a
+  `warmth` tile, and the speakers on one row. `music.toggle` is gone.
+- Lists: `lists` and a chip's `open: "list:0"` open the shopping list grouped by aisle (`aisles`); OK ticks an item off,
+  with Undo for six seconds, and Back closes it.
+- Recap: "What we did" (the week's activities) and "Out and about" (routes drawn from GPS points), a detailed "What we
+  watched" (shows, days, inputs), a card per new recipe, "Energy over time" (12 weeks, electricity and gas, last year),
+  bad news as "Worth knowing" instead of a record, both floors' cleaning maps, and next week's events.
+
 ## 1.4.0
 
 - Recap: `gym`, the week's days at the gym for each person with a dot a day, after the goals card; the line is the

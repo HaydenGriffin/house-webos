@@ -252,7 +252,6 @@
       ] },
       records: [{ icon: 'trophy', text: '11,430 steps: Alex’s best day since August' },
                 { icon: 'lightningBolt', text: '£29.60 on energy: the priciest week in 9 weeks', tone: 'bad' }],
-      house_says: { text: 'I opened the front door 15 times this week. Mostly for parcels, I suspect.' },
       next_week: {
         forecast: [
           { day: 'Mon', condition: 'partlycloudy', high: 19, low: 12 }, { day: 'Tue', condition: 'cloudy', high: 18, low: 11 },
