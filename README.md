@@ -27,7 +27,7 @@ arrow keys and Enter; add `&recap` to the URL for the week recap, or `&theme=aft
   reading (with their covers), a quiz, a guess-the-week reveal and a winner with a drumroll. The cards come from one JSON object that any automation can produce; see
   [`docs/recap-stats.md`](docs/recap-stats.md). An automation can start it on the TV with nobody at the remote.
 
-<img src="docs/images/recap.png" alt="Six recap cards: a steps duel, a quiz, the week's dinners, the energy bill, the robot vacuum's week and the winner" width="100%">
+<img src="docs/images/recap.png" alt="Six recap cards: a steps duel, the gym days, a quiz, the books read, the robot vacuum's week and the winner" width="100%">
 
 ## Requirements
 
