@@ -103,6 +103,8 @@ Icons are [Material Design Icons](https://pictogrammers.com/library/mdi/) names 
 
 ## Themes
 
+<img src="docs/images/afterglow.png" alt="House in the Afterglow theme: ink ground, paper type, lit rooms as lamp-coloured fields" width="100%">
+
 The default look is House's own and needs nothing set. `"theme": "afterglow"` lays one more stylesheet over it,
 [`app/themes/afterglow/afterglow.css`](app/themes/afterglow/afterglow.css), so House matches
 Afterglow, a poster-style music app for LG TVs, when both run on one TV: an ink ground and warm paper type in one
