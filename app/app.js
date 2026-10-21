@@ -577,10 +577,15 @@
   function foodPhotos(paths, done) {
     pictures(paths, 8, function (list, got) { done(got.filter(Boolean)); });
   }
-  /* The covers of the books the reading card may show, as { path: URL } for the ones that loaded. */
-  function bookCovers(r, done) {
+  /* The pictures the recap's cards may show (book covers, new recipes' pictures, the vacuum's maps), as { path: URL } for
+     the ones that loaded. */
+  function recapPictures(s, done) {
+    var r = s && s.reading, f = s && s.food, v = s && s.vacuum;
     var books = r ? [].concat(r.finished || [], r.current || []) : [];
-    pictures(books.map(function (b) { return b && b.cover; }), 6, function (list, got) {
+    var paths = books.map(function (b) { return b && b.cover; })
+      .concat(((f && f.recipes) || []).map(function (x) { return x && x.first === true && x.image; }))
+      .concat(((v && v.maps) || []).map(function (x) { return x && x.picture; }));
+    pictures(paths, 14, function (list, got) {
       var map = {};
       list.forEach(function (p, n) { if (got[n]) map[p] = got[n]; });
       done(map);
@@ -598,15 +603,15 @@
     if (recapStarting || !RECAP) return;
     if (recap) { recap.stop(); recap = null; }
     recapStarting = true;
-    var rawStats = attr(RECAP.stats, RECAP.attribute || 'stats'), stats = adaptStats(rawStats), hours = null, photos = [], covers = {}, waiting = 3;
+    var rawStats = attr(RECAP.stats, RECAP.attribute || 'stats'), stats = adaptStats(rawStats), hours = null, photos = [], pics = {}, waiting = 3;
     tvHours(function (h) { hours = h; ready(); });
     foodPhotos(stats && stats.food && stats.food.photos, function (p) { photos = p; ready(); });
-    bookCovers(stats && stats.reading, function (c) { covers = c; ready(); });
+    recapPictures(stats, function (c) { pics = c; ready(); });
     function ready() {
       if (--waiting) return;
       recapStarting = false;
       var vac = stats && stats.vacuum;
-      var cards = window.HouseRecap.build({ stats: stats, tvHours: hours, foodPhotos: photos, bookCovers: covers, locale: LOCALE,
+      var cards = window.HouseRecap.build({ stats: stats, tvHours: hours, foodPhotos: photos, pictures: pics, locale: LOCALE,
         vacuumMap: useDemo ? DEMO.vacuumMap : cameraPicture((vac && vac.map_entity) || RECAP.vacuum_map), backTo: backTo(), now: useDemo && DEMO.now ? DEMO.now() : null });
       if (!cards.length) {
         if (auto) return close();

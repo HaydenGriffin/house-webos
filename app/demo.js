@@ -145,8 +145,43 @@
       '<text x="18" y="268" font-family="Georgia, serif" font-size="15" fill="' + ink + '">' + author + '</text></svg>');
   }
 
+  /* A made-up route: a loose loop of n points around a park, rx by ry metres, wobbling so it reads as a real one. */
+  function loop(lat, lon, rx, ry, n, seed) {
+    var pts = [], k = Math.cos(lat * Math.PI / 180);
+    for (var i = 0; i < n; i++) {
+      var a = i / (n - 1) * Math.PI * 2, w = 1 + 0.12 * Math.sin(a * 5 + seed) + 0.06 * Math.cos(a * 9 + seed * 2);
+      pts.push([lat + Math.sin(a) * ry * w / 111320, lon + Math.cos(a) * rx * w / (111320 * k)]);
+    }
+    return pts;
+  }
+  /* A floor of the house with the vacuum's path over it, drawn so the demo needs no camera. */
+  function floor(rooms, path) {
+    return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 260">' +
+      '<g fill="#2e3239" stroke="#8ab4ff" stroke-width="3">' + rooms.map(function (r) { return '<path d="' + r + '"/>'; }).join('') + '</g>' +
+      '<path d="' + path + '" stroke="#ffc76b" stroke-width="4" stroke-linejoin="round" fill="none" opacity=".85"/></svg>');
+  }
+  /* A made-up dish: a plate on a table, in two colours. */
+  function dish(table, food) {
+    return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 360">' +
+      '<rect width="400" height="360" fill="' + table + '"/><circle cx="200" cy="180" r="140" fill="#f4f2ee"/>' +
+      '<circle cx="200" cy="180" r="108" fill="' + food + '"/><circle cx="160" cy="150" r="22" fill="#f4f2ee" opacity=".5"/>' +
+      '<circle cx="236" cy="206" r="16" fill="#3e6b2f" opacity=".8"/><circle cx="214" cy="140" r="10" fill="#3e6b2f" opacity=".8"/></svg>');
+  }
+  var ZIG = function (x0, y0, x1, y1, step) {
+    var d = 'M' + x0 + ' ' + y0, y = y0, right = true;
+    while (y <= y1) { d += 'H' + (right ? x1 : x0); y += step; if (y <= y1) d += 'V' + y; right = !right; }
+    return d;
+  };
+
   function recap() {
     var now = new Date(), mon = day(0), sun = day(6);
+    function iso(n) { var x = day(n); return x.getFullYear() + '-' + ('0' + (x.getMonth() + 1)).slice(-2) + '-' + ('0' + x.getDate()).slice(-2); }
+    function act(who, kind, name, n, start, minutes, km, route) {
+      var a = { who: who, kind: kind, name: name, day: DAYS[n], date: iso(n), start: start, minutes: minutes };
+      if (km) a.km = km;
+      if (route) a.route = route;
+      return a;
+    }
     function d(x) { return x.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }); }
     return {
       generated_at: now.toISOString(),
@@ -165,11 +200,31 @@
         bed_race: { who: 'sam', nights: 5, of: 7 },
       },
       showers: { alex: { count: 6, avg_min: 9, avg_temp: 41.2, litres: 280, kwh: 8.4 }, sam: { count: 7, avg_min: 14, avg_temp: 43.0, litres: 470, kwh: 14.6 } },
-      energy: { week_cost: 29.6, vs_last_week_pct: 12 },
+      energy: { week_cost: 29.6, vs_last_week_pct: 12, series: {
+        labels: ['W31', 'W32', 'W33', 'W34', 'W35', 'W36', 'W37', 'W38', 'W39', 'W40', 'W41', 'W42'],
+        elec: [17.2, 16.8, 18.1, 17.5, 16.2, 17.9, 15.8, 17.4, 15.6, 17.1, 16.2, 17.8],
+        gas: [4.1, 3.9, 4.6, 5.2, 7.9, 7.9, 7.1, 9.0, 8.1, 10.1, 10.2, 11.8],
+        last_year: [22.4, 21.0, 23.5, 22.8, 24.1, 25.3, 24.6, 26.0, 27.9, 28.4, 30.1, 31.5],
+      } },
       trends: { energy_cost: [24.1, 25.8, 22.9, 26.4, 23.7, 27.2, 26.4, 29.6] },
       quiz: { question: 'How many thousand steps did you walk between you?', options: ['64', '102', '148'], answer_index: 1,
               reveal: '101,694 steps altogether.', icon: 'shoePrint' },
-      watched: { hours: 32, top: [{ title: 'The Bear' }] },
+      watched: { hours: 32, top: [{ title: 'The Bear', hours: 9.5 }, { title: 'Slow Horses', hours: 6 }, { title: 'Match of the Day', hours: 3.5 },
+                                  { title: 'Paddington 2', hours: 2 }, { title: 'Bluey', hours: 1.5 }],
+                 apps: [{ name: 'Netflix', hours: 14 }, { name: 'BBC iPlayer', hours: 9 }, { name: 'YouTube', hours: 5 }],
+                 inputs: [{ name: 'Streamer', hours: 26 }, { name: 'TV apps', hours: 4 }, { name: 'Console', hours: 2 }],
+                 days: [{ day: 'Mon', hours: 3 }, { day: 'Tue', hours: 2.5 }, { day: 'Wed', hours: 4 }, { day: 'Thu', hours: 3.5 },
+                        { day: 'Fri', hours: 7 }, { day: 'Sat', hours: 6.5 }, { day: 'Sun', hours: 5.5 }],
+                 binge: { day: 'Friday', hours: 7 } },
+      activities: { items: [
+        act('alex', 'run', 'Morning run', 0, '07:10', 31, 5.2, loop(51.5072, -0.1657, 520, 330, 160, 1)),
+        act('sam', 'class', 'Yoga', 1, '18:30', 45),
+        act('alex', 'gym', 'The gym', 2, '19:05', 62),
+        act('sam', 'gym', 'The gym', 3, '07:40', 55),
+        act('alex', 'walk', 'Walk to the market', 3, '12:20', 48, 3.4),
+        act('sam', 'run', 'parkrun', 5, '09:00', 29, 5.0, loop(51.4613, -0.1156, 380, 450, 140, 3)),
+        act('alex', 'cycle', 'Ride out to Richmond', 6, '10:15', 64, 18.6),
+      ] },
       gym: {
         days: DAYS.map(function (name, n) { return { day: name, alex: n === 1 || n === 5, sam: n === 0 || n === 3 || n === 5 }; }),
         alex: { days: 2, minutes: 105, streak: 3 }, sam: { days: 3, minutes: 170, streak: 6 },
@@ -185,8 +240,18 @@
         { day: 'Wed', meal: 'Roasted sweet potatoes with guacamole' }, { day: 'Thu', meal: 'Beef ragù' },
         { day: 'Fri', meal: 'Pizza night' }, { day: 'Sat', meal: 'Thai green curry' }, { day: 'Sun', meal: 'Roast chicken and greens' },
       ] },
-      vacuum: { name: 'Robbie', cleans: 4, m2: 58, line: '58 m², most of a badminton court' },
-      records: [{ icon: 'trophy', text: '11,430 steps: Alex’s best day since August' }],
+      food: { recipes: [
+        { name: 'Chana masala', image: dish('#3a2a20', '#c8792e'), minutes: 40, servings: 4, source: 'BBC Good Food', day: 'Tuesday', first: true },
+        { name: 'Pad Thai', image: dish('#1f2b33', '#d9a441'), minutes: 25, servings: 2, source: 'Cookidoo', day: 'Thursday', had: 2, first: true },
+      ] },
+      vacuum: { name: 'Robbie', cleans: 4, m2: 58, line: '58 m², most of a badminton court', maps: [
+        { floor: 'Downstairs', when: 'Tue 10:40', m2: 34, picture: floor(['M20 20h200v130H20z', 'M220 20h160v100H220z', 'M20 150h140v90H20z', 'M160 120h220v120H160z'],
+          ZIG(34, 34, 206, 136, 14) + 'M234 34' + ZIG(234, 34, 366, 106, 14).slice(ZIG(234, 34, 366, 106, 14).indexOf('H'))) },
+        { floor: 'Upstairs', when: 'Thu 11:05', m2: 24, picture: floor(['M20 20h170v110H20z', 'M190 20h190v110H190z', 'M20 130h120v110H20z', 'M140 130h240v110H140z'],
+          ZIG(204, 34, 366, 116, 14) + 'M154 144' + ZIG(154, 144, 366, 226, 14).slice(ZIG(154, 144, 366, 226, 14).indexOf('H'))) },
+      ] },
+      records: [{ icon: 'trophy', text: '11,430 steps: Alex’s best day since August' },
+                { icon: 'lightningBolt', text: '£29.60 on energy: the priciest week in 9 weeks', tone: 'bad' }],
       house_says: { text: 'I opened the front door 15 times this week. Mostly for parcels, I suspect.' },
       next_week: {
         forecast: [
@@ -196,6 +261,9 @@
           { day: 'Sun', condition: 'rainy', high: 13, low: 9 },
         ],
         challenge: 'Next week: beat 100,000 steps between you',
+        events: [{ day: 'Tue', time: '18:30', title: 'Dinner with Jo and Priya' }, { day: 'Thu', title: 'Sam’s birthday' },
+                 { day: 'Sat', time: '10:00', title: 'Boiler service' }],
+        bins: { day: 'Monday', what: 'Garden' },
       },
       guess: { question: 'Who’ll take the longer showers this week?', answer: 'sam', guesses: { alex: 'sam', sam: 'alex' }, right: ['alex'] },
       winner: { name: 'sam', categories: [
