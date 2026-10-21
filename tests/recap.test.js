@@ -201,3 +201,70 @@ test('back and end report their reason once; stop is silent', (t) => {
   u.p.end('left');
   assert.deepStrictEqual(u.ended, ['left']);
 });
+
+/* ---------- the gym ---------- */
+const week = (a, s) => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, n) => ({ day, alex: a[n], sam: s[n] }));
+const gymCard = (gym) => load().build({ stats: stats({ gym }) }).find((c) => c.label === 'The gym');
+
+test('the gym: shown when someone went, left out when nobody did or there is no entry', () => {
+  assert.ok(gymCard({ days: week([1, 0, 0, 0, 0, 0, 0].map(Boolean), Array(7).fill(false)), alex: { days: 1 }, sam: { days: 0 } }));
+  assert.strictEqual(gymCard({ alex: { days: 0 }, sam: { days: 0 } }), undefined);
+  assert.strictEqual(gymCard({ days: [] }), undefined);
+  assert.strictEqual(gymCard(null), undefined);
+});
+
+test('the gym: the producer’s line first, then the longest streak of two or more weeks', () => {
+  assert.strictEqual(gymCard({ alex: { days: 2 }, sam: { days: 3 }, line: 'A busy week at the rack' }).line, 'A busy week at the rack');
+  assert.strictEqual(gymCard({ alex: { days: 2, streak: 3 }, sam: { days: 3, streak: 6 } }).line, 'Sam: 6 weeks without a zero week');
+  assert.strictEqual(gymCard({ alex: { days: 2, streak: 4 }, sam: { days: 2, streak: 4 } }).line, 'Alex and Sam: 4 weeks without a zero week');
+});
+
+test('the gym: a streak under the week’s goal is not bragged about; then who went more, or both the same', () => {
+  assert.strictEqual(gymCard({ alex: { days: 1, streak: 5 }, sam: { days: 3 } }).line, 'Sam went 3 times to 1');
+  assert.strictEqual(gymCard({ alex: { days: 1, streak: 5 }, sam: { days: 3 }, goal: 1 }).line, 'Alex: 5 weeks without a zero week');
+  assert.strictEqual(gymCard({ alex: { days: 2 }, sam: { days: 2 } }).line, 'Both made it 2 times');
+});
+
+test('the gym: one person alone gets their own card, with their minutes as the line', () => {
+  const card = gymCard({ days: week(Array(7).fill(null), [true, false, true, false, false, false, false]), sam: { days: 2, minutes: 95 } });
+  assert.ok(/r-solo/.test(card.html));
+  assert.ok(!/Alex/.test(card.html));
+  assert.strictEqual(card.line, '1h 35m at the gym in all');
+  assert.strictEqual(gymCard({ sam: { days: 1, minutes: 40 } }).line, '40 min at the gym in all');
+});
+
+test('the gym plays after the goals card and before sleep', () => {
+  const cards = load().build({ stats: stats({ gym: { alex: { days: 2 }, sam: { days: 1 } }, sleep: { avg: { alex: 420, sam: 450 } },
+    goals: { alex: { hit: 4, of: 7 }, sam: { hit: 5, of: 7 } } }) });
+  const l = labels(cards);
+  assert.ok(l.indexOf('Daily goals') < l.indexOf('The gym') && l.indexOf('The gym') < l.indexOf('Sleep: Alex vs Sam'), l.join(' | '));
+});
+
+/* ---------- what we read ---------- */
+const readCard = (reading, covers) => load().build({ stats: stats({ reading }), bookCovers: covers }).find((c) => c.label === 'What we read');
+
+test('reading: needs a finished book or one being read with a percent', () => {
+  assert.ok(readCard({ finished: [{ title: 'A' }] }));
+  assert.ok(readCard({ current: [{ title: 'B', percent: 10 }] }));
+  assert.strictEqual(readCard({ current: [{ title: 'B' }] }), undefined);
+  assert.strictEqual(readCard({ finished: [{ author: 'No title' }], current: [] }), undefined);
+  assert.strictEqual(readCard(null), undefined);
+});
+
+test('reading: finished books first, then the ones being read, three at most', () => {
+  const card = readCard({ current: [{ title: 'C1', percent: 30 }, { title: 'C2', percent: 60 }], finished: [{ title: 'F1' }, { title: 'F2' }] });
+  const order = card.html.match(/r-book-title">([^<]+)/g).map((m) => m.split('>')[1]);
+  assert.deepStrictEqual(order, ['F1', 'F2', 'C1']);
+  assert.ok(/Finished/.test(card.html) && /30%/.test(card.html));
+});
+
+test('reading: a cover shows only when it loaded; the line is the year, else two or more finished', () => {
+  const card = readCard({ finished: [{ title: 'F', cover: '/api/x.jpg' }, { title: 'G', cover: '/api/y.jpg' }] }, { '/api/x.jpg': 'http://ha/x.jpg' });
+  assert.ok(/<img src="http:\/\/ha\/x.jpg"/.test(card.html));
+  assert.strictEqual((card.html.match(/r-nocover/g) || []).length, 1);
+  assert.strictEqual(card.line, '2 books finished this week');
+  assert.strictEqual(readCard({ finished: [{ title: 'F' }], year: { sam: 1 } }).line, 'Sam has read 1 book this year');
+  assert.strictEqual(readCard({ finished: [{ title: 'F' }], year: { alex: 4, sam: 19 } }).line, 'Books this year: Alex 4, Sam 19');
+  assert.strictEqual(readCard({ current: [{ title: 'C', percent: 140, who: 'alex' }] }).line, '');
+  assert.ok(/100%/.test(readCard({ current: [{ title: 'C', percent: 140, who: 'alex' }] }).html));
+});

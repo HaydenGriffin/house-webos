@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0
+
+- Recap: `gym`, the week's days at the gym for each person with a dot a day, after the goals card; the line is the
+  longest run of weeks that reached the goal ("Sam: 6 weeks without a zero week"), else who went more.
+- Recap: `reading`, "What we read": up to three books, finished first, then the ones being read with a progress bar,
+  covers loaded like the food photos; the line is the year's count.
+- Glance chips, status parts and people's notes count a list: `{value}` is how many items it has, or with `filter` how
+  many match (e.g. today's parcels still to come).
+
 ## 1.3.0
 
 - Lights: CH + and CH − brighten and dim the light in focus (`step`, default 10%), and `action` runs instead of the

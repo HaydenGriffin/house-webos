@@ -23,11 +23,11 @@ arrow keys and Enter; add `&recap` to the URL for the week recap, or `&theme=aft
   reading) stays off the screen while it's on.
 - **Live.** It holds one websocket to Home Assistant and subscribes to only the entities it shows, using the compressed
   `subscribe_entities` stream, so a 2021 TV keeps up.
-- **Your week at home.** Full-screen cards with count-ups, paired bar charts, a quiz, a guess-the-week reveal and a
-  winner with a drumroll. The cards come from one JSON object that any automation can produce; see
+- **Your week at home.** Full-screen cards with count-ups, paired bar charts, the gym days, the books you finished or are
+  reading (with their covers), a quiz, a guess-the-week reveal and a winner with a drumroll. The cards come from one JSON object that any automation can produce; see
   [`docs/recap-stats.md`](docs/recap-stats.md). An automation can start it on the TV with nobody at the remote.
 
-<img src="docs/images/recap.png" alt="Six recap cards: a steps duel, a quiz, the week's dinners, the energy bill, the robot vacuum's week and the winner" width="100%">
+<img src="docs/images/recap.png" alt="Six recap cards: a steps duel, the gym days, a quiz, the books read, the robot vacuum's week and the winner" width="100%">
 
 ## Requirements
 
@@ -37,7 +37,7 @@ arrow keys and Enter; add `&recap` to the URL for the week recap, or `&theme=aft
 - A Home Assistant user for the TV. Make it non-admin, ideally "local access only", and create a long-lived access
   token for it from its profile page.
 
-> **Status:** an earlier private build of this app runs every day on a rooted 2021 C1. Versions 1.1 to 1.3 have only
+> **Status:** an earlier private build of this app runs every day on a rooted 2021 C1. Versions 1.1 to 1.4 have only
 > run in the browser demo and the tests so far. The public package, `ares-install`, the Developer Mode SSH push and
 > launching by `io.github.haydengriffin.house` haven't been tried on a TV yet. Reports either way are very welcome.
 
@@ -51,7 +51,7 @@ config goes onto the TV separately, next to the installed app.
    ```bash
    python3 tools/package.py
    ares-setup-device            # once, to add the TV
-   ares-install -d <tv> dist/io.github.haydengriffin.house_1.3.0_all.ipk
+   ares-install -d <tv> dist/io.github.haydengriffin.house_1.4.0_all.ipk
    ```
 
 2. Copy `config.example.json` to `config.json` and fill in the websocket URL, the token and your entities. Everything
@@ -86,7 +86,7 @@ Developer Mode sessions run out unless they're extended; the Developer Mode app 
 | `lights` | `[{ name, entity, icon?, on?, off?, action?, step? }]`. A press toggles the entity, or runs `action` instead (e.g. a script that turns the room on at Adaptive Lighting's level). `on` and `off` replace the state text ("On · 60%", "Off"). CH + and CH − on a light in focus step its brightness by `step` percent (default 10); CH − leaves a light that's off alone. |
 | `tiles` | `[{ name, sub?, icon?, toast?, entity?, on?, off?, action?, confirm?, visible? }]`. `action` is `{ service: "domain.service", data?, target? }`; with only `entity`, a press toggles it. `sub` shows while the entity is off; `on` and `off` work as on lights. `confirm: true` (or the armed label) makes it a two-press action: the first press arms it red for 5 s. `visible: { entity, states }` shows it only while the entity is in one of those states. |
 | `door`, `door_name` | A `binary_sensor`; a chip appears while it's on, with how long for. `door_name` is the chip's text (default "Door open"). |
-| `glance` | Header chips: `[{ entity, text?, icon?, attribute?, hide?, hours?, within_days?, private? }]`. `text` takes `{value}`, `{attr.x}` and `{day}` (the value read as a date: today, tomorrow or the weekday), e.g. `"Tonight · {value}"`. A chip shows only while there's something to say. |
+| `glance` | Header chips: `[{ entity, text?, icon?, attribute?, filter?, hide?, hours?, within_days?, private? }]`. `text` takes `{value}`, `{attr.x}` and `{day}` (the value read as a date: today, tomorrow or the weekday), e.g. `"Tonight · {value}"`. A chip shows only while there's something to say. When the value is a list, `{value}` is how many items it has, or with `filter` how many match every key: a list of values means any of them (a missing key reads as `null`), anything else must be equal. E.g. `"attribute": "items", "filter": { "today": true, "status": ["expected", "out_for_delivery"] }` counts today's parcels still to come; `"hide": ["0"]` hides a count of none. |
 | `glance_max` | How many chips fit beside the clock (default 3). Past that, the first ones stay and the rest take turns in the last place, five seconds each. |
 | `status` | One line under the title, after the next event: `[{ entity, text?, ... }]` in the same shape as `glance`, joined with " · ", e.g. `"Heating to 20° · 1 parcel coming"`. Parts with nothing to say drop out. |
 | `guests`, `private` | `guests: { entity, states? }` is in while the entity is in one of `states` (default `["on"]`). Meanwhile anything with `private: true` stays hidden: glance chips, status parts, people's notes, tiles, quick and footer actions, and the recap (`recap.private`). |

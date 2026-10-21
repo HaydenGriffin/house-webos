@@ -164,6 +164,49 @@
     return { icon: 'target', label: str(r.label) || 'Daily goals', html: html, line: line, cls: 'r-widecard', ms: 4500 };
   }
 
+  /* The gym: each person's days there over the week, a dot a day, and one line: the producer's, else the longest run of
+     weeks that each reached the goal (2 days unless `goal` says otherwise), else who went more. One person's card is
+     fine; someone with no entry is left out. */
+  function minutes(m) { return m < 60 ? Math.round(m) + ' min' : hm(m); }
+  function gymLine(g, here, goal) {
+    if (str(g.line)) return g.line;
+    var best = 0, names = [];
+    here.forEach(function (p) {
+      var s = g[p.id].streak;
+      if (!num(s) || s < 2 || g[p.id].days < goal) return;
+      if (s > best) { best = s; names = [p.name]; } else if (s === best) names.push(p.name);
+    });
+    if (best) return names.join(' and ') + ': ' + best + ' weeks without a zero week';
+    if (here.length === 2) {
+      var a = g[here[0].id].days, b = g[here[1].id].days;
+      if (a !== b) return (a > b ? here[0] : here[1]).name + ' went ' + Math.max(a, b) + ' ' + plural(Math.max(a, b), 'time', 'times') + ' to ' + Math.min(a, b);
+      return 'Both made it ' + a + ' ' + plural(a, 'time', 'times');
+    }
+    var m = g[here[0].id].minutes;
+    return num(m) && m > 0 ? minutes(m) + ' at the gym in all' : '';
+  }
+  function gymCard(g) {
+    if (!g || !P.length) return null;
+    var here = P.filter(function (p) { var x = g[p.id]; return x && num(x.days) && x.days >= 0; });
+    if (!here.some(function (p) { return g[p.id].days >= 1; })) return null;
+    var goal = num(g.goal) && g.goal > 0 ? g.goal : 2, days = (g.days || []).filter(Boolean).slice(0, 7);
+    var ticks = '<div class="r-pairs r-ticks">' + days.map(function (d) {
+      return '<div class="r-pair"><div class="r-pair-bars">' + here.map(function (p) {
+        var v = d[p.id];
+        return '<span class="r-tick ' + p.cls + (v === true ? ' r-on' : v === false ? '' : ' r-none') + '"></span>';
+      }).join('') + '</div><p class="r-pair-day">' + esc(d.day || '') + '</p></div>';
+    }).join('') + '</div>';
+    function side(p, k) {
+      var x = g[p.id];
+      return '<div class="r-side r-side-' + (k ? 'p2' : 'p1') + '"><p class="r-who ' + p.cls + '">' + esc(p.name) + '</p>' +
+        '<p class="r-side-n">' + x.days + '<span class="r-side-unit">' + plural(x.days, 'day', 'days') + '</span></p>' +
+        (num(x.minutes) && x.minutes > 0 ? '<p class="r-side-sub">' + minutes(x.minutes) + '</p>' : '') + '</div>';
+    }
+    var html = here.length === 2 ? '<div class="r-versus">' + side(here[0], 0) + ticks + side(here[1], 1) + '</div>'
+      : '<div class="r-versus r-solo">' + side(here[0], 0) + ticks + '</div>';
+    return { icon: 'dumbbell', label: 'The gym', html: html, line: gymLine(g, here, goal), cls: 'r-widecard r-gymcard', ms: 5000 };
+  }
+
   /* Restless nights: only the notable one, the most restless night or a week nobody got up. */
   function restless(r) {
     if (!r) return null;
@@ -311,6 +354,40 @@
              cls: 'r-widecard r-platecard', ms: 6000 };
   }
 
+  /* What we read: up to three books side by side, the ones finished this week first, then the ones being read with how far
+     in. A cover shows when its picture loaded (app.js); without one the book gets a plain spine. covers: { path: url }. */
+  function shelf(r) {
+    var done = (r.finished || []).filter(function (b) { return b && str(b.title); });
+    var going = (r.current || []).filter(function (b) { return b && str(b.title) && num(b.percent); });
+    return done.map(function (b) { return { b: b, done: true }; }).concat(going.map(function (b) { return { b: b, done: false }; })).slice(0, 3);
+  }
+  function readLine(r, finished) {
+    var y = r.year, said = [];
+    if (y) P.forEach(function (p) { if (num(y[p.id]) && y[p.id] > 0) said.push({ p: p, n: y[p.id] }); });
+    if (said.length === 1) return said[0].p.name + ' has read ' + said[0].n + ' ' + plural(said[0].n, 'book', 'books') + ' this year';
+    if (said.length === 2) return 'Books this year: ' + said[0].p.name + ' ' + said[0].n + ', ' + said[1].p.name + ' ' + said[1].n;
+    return finished >= 2 ? finished + ' books finished this week' : '';
+  }
+  function reading(r, covers) {
+    if (!r) return null;
+    var books = shelf(r);
+    if (!books.length) return null;
+    var finished = books.filter(function (x) { return x.done; }).length;
+    var html = '<div class="r-shelf r-shelf-' + books.length + '">' + books.map(function (x, n) {
+      var b = x.b, pic = covers && str(b.cover) ? covers[b.cover] : '', p = person(b.who);
+      var cover = pic ? '<span class="r-cover"><img src="' + esc(pic) + '" alt=""></span>'
+        : '<span class="r-cover r-nocover">' + svg('bookOpenPageVariant') + '</span>';
+      var pct = Math.max(0, Math.min(100, Math.round(b.percent)));
+      var state = x.done ? '<p class="r-book-state"><span class="r-book-done">' + svg('check') + '</span>Finished' + (p ? ' by <b class="' + p.cls + '">' + esc(p.name) + '</b>' : '') + '</p>'
+        : '<p class="r-book-state"><span class="r-book-bar"><i class="' + (p ? p.cls : '') + '" style="width:' + pct + '%"></i></span>' + pct + '%' +
+          (p ? ' · <b class="' + p.cls + '">' + esc(p.name) + '</b>' : '') + '</p>';
+      return '<div class="r-book r-step"' + delay(0.3 + n * 0.18) + '>' + cover + '<p class="r-book-title">' + esc(b.title) + '</p>' +
+        (str(b.author) ? '<p class="r-book-author">' + esc(b.author) + '</p>' : '') + state + '</div>';
+    }).join('') + '</div>';
+    return { icon: 'bookOpenPageVariant', label: 'What we read', html: html, htmlSteps: true, line: readLine(r, finished),
+             cls: 'r-widecard r-readcard', ms: 6000 };
+  }
+
   /* Guess the week: the question asked at the start of the week and each guess, a drumroll, then the answer and who called it. */
   function guess(g) {
     if (!duo() || !g || !str(g.question) || !str(g.answer) || !g.guesses) return null;
@@ -453,6 +530,7 @@
     return [
       stepsDuel(s.duel, s.belt),
       goalsDuel(s.goals),
+      gymCard(s.gym),
       sleepDuel(s.sleep),
       restless(s.restless),
       showerDuel(s.showers),
@@ -460,6 +538,7 @@
       quiz(s.quiz),
       watched(s.watched, data.tvHours),
       plates(s.food, data.foodPhotos) || dinners(s.dinners),
+      reading(s.reading, data.bookCovers),
       vacuumCard(s.vacuum, data.vacuumMap),
       record(s.records),
       houseSays(s.house_says),
@@ -468,7 +547,8 @@
     ].concat(highlights(s.highlights), [guess(s.guess), winner(s.winner)]);
   }
 
-  /* data: { stats (ignored when over 8 days old), tvHours, vacuumMap and foodPhotos (absolute URLs that loaded), locale, now } */
+  /* data: { stats (ignored when over 8 days old), tvHours, vacuumMap and foodPhotos (absolute URLs that loaded), bookCovers
+     ({ cover path in the stats: URL that loaded }), locale, now } */
   function build(data) {
     var now = data.now || new Date(), s = freshStats(data.stats, now);
     if (!s) return [];

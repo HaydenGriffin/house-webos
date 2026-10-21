@@ -38,8 +38,8 @@ const hero = `${base}
   </div>
 </div>`;
 
-const cards = [['recap-01.png', 'Steps, head to head'], ['recap-06.png', 'A quick question'], ['recap-08.png', 'What we ate'],
-  ['recap-04.png', 'The energy bill'], ['recap-09.png', 'The vacuum’s week'], ['recap-17.png', 'And the winner is…']];
+const cards = [['recap-01.png', 'Steps, head to head'], ['recap-02.png', 'Days at the gym'], ['recap-07.png', 'A quick question'],
+  ['recap-10.png', 'What we read'], ['recap-11.png', 'The vacuum’s week'], ['recap-19.png', 'And the winner is…']];
 const grid = `${base}
 <div class="canvas" style="width:1600px;height:1010px;padding:84px 90px">
   <div class="eyebrow">Your week at home</div>

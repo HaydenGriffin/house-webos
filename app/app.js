@@ -379,13 +379,14 @@
     if (!pic || dead(id)) return '';
     return /^(https?:|data:)/.test(pic) || useDemo ? pic : haBase() + pic;
   }
-  /* Food pictures, loaded before the recap starts so the collage never shows a gap; done(urls) gets the ones that loaded,
-     in order, within 5 s. Paths under /api/ need a signed-in user, so auth/sign_path signs each for 10 minutes instead of
-     anything being made public. */
-  function foodPhotos(paths, done) {
-    var list = (paths || []).filter(function (p) { return typeof p === 'string' && p; }).slice(0, 8);
+  /* Pictures (food photos, book covers), loaded before the recap starts so a card never shows a gap; done(list, urls)
+     gets the paths it tried and, at the same places, the URL of each one that loaded (undefined if it didn't), within
+     5 s. Paths under /api/ need a signed-in user, so auth/sign_path signs each for 10 minutes instead of anything being
+     made public. */
+  function pictures(paths, max, done) {
+    var list = (paths || []).filter(function (p, n, given) { return typeof p === 'string' && p && given.indexOf(p) === n; }).slice(0, max);
     var got = [], left = list.length, answered = false;
-    function once() { if (!answered) { answered = true; done(got.filter(Boolean)); } }
+    function once() { if (!answered) { answered = true; done(list, got); } }
     function settle() { if (--left <= 0) once(); }
     function load(n, url) {
       var img = new Image();
@@ -405,6 +406,18 @@
       });
     });
   }
+  function foodPhotos(paths, done) {
+    pictures(paths, 8, function (list, got) { done(got.filter(Boolean)); });
+  }
+  /* The covers of the books the reading card may show, as { path: URL } for the ones that loaded. */
+  function bookCovers(r, done) {
+    var books = r ? [].concat(r.finished || [], r.current || []) : [];
+    pictures(books.map(function (b) { return b && b.cover; }), 6, function (list, got) {
+      var map = {};
+      list.forEach(function (p, n) { if (got[n]) map[p] = got[n]; });
+      done(map);
+    });
+  }
   /* A producer whose stats don't follow docs/recap-stats.md can be reshaped by window.HOUSE_STATS_ADAPTER, a function
      defined in config.js (push_config.py --adapter). A failing adapter leaves the stats as they came. */
   function adaptStats(stats) {
@@ -417,14 +430,15 @@
     if (recapStarting || !RECAP) return;
     if (recap) { recap.stop(); recap = null; }
     recapStarting = true;
-    var rawStats = attr(RECAP.stats, RECAP.attribute || 'stats'), stats = adaptStats(rawStats), hours = null, photos = [], waiting = 2;
+    var rawStats = attr(RECAP.stats, RECAP.attribute || 'stats'), stats = adaptStats(rawStats), hours = null, photos = [], covers = {}, waiting = 3;
     tvHours(function (h) { hours = h; ready(); });
     foodPhotos(stats && stats.food && stats.food.photos, function (p) { photos = p; ready(); });
+    bookCovers(stats && stats.reading, function (c) { covers = c; ready(); });
     function ready() {
       if (--waiting) return;
       recapStarting = false;
       var vac = stats && stats.vacuum;
-      var cards = window.HouseRecap.build({ stats: stats, tvHours: hours, foodPhotos: photos, locale: LOCALE,
+      var cards = window.HouseRecap.build({ stats: stats, tvHours: hours, foodPhotos: photos, bookCovers: covers, locale: LOCALE,
         vacuumMap: useDemo ? DEMO.vacuumMap : cameraPicture((vac && vac.map_entity) || RECAP.vacuum_map), backTo: backTo(), now: useDemo && DEMO.now ? DEMO.now() : null });
       if (!cards.length) {
         if (auto) return close();

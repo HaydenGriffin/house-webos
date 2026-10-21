@@ -13,7 +13,8 @@
   "glance_max": 3,
   "status": [
     { "entity": "climate.living_room", "attribute": "current_temperature", "text": "{value}° inside" },
-    { "entity": "sensor.parcels_today", "text": "{value} parcels today", "hide": ["0"] }
+    { "entity": "sensor.parcels", "attribute": "items", "filter": { "today": true, "status": ["expected", "out_for_delivery"] },
+      "text": "Parcels today · {value}", "hide": ["0"] }
   ],
   "guests": { "entity": "input_boolean.guests" },
   "quick": [
