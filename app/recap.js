@@ -92,7 +92,7 @@
     var top = Math.max.apply(null, nums.concat([1]));
     function bar(v, p, best) {
       var lost = best && best !== p ? ' r-lost' : '';
-      return num(v) ? '<span class="r-pbar ' + p.cls + lost + '" style="height:' + Math.max(8, Math.round(v / top * 230)) + 'px"></span>'
+      return num(v) && v > 0 ? '<span class="r-pbar ' + p.cls + lost + '" style="height:' + Math.max(8, Math.round(v / top * 230)) + 'px"></span>'
         : '<span class="r-pbar r-none"></span>';
     }
     return '<div class="r-pairs">' + rows.map(function (r) {
@@ -377,12 +377,14 @@
     var v = of2(sh), h = v[0], e = v[1];
     if (!h || !e || !num(h.avg_min) || !num(e.avg_min) || !h.count || !e.count) return null;
     var days = (sh.days || []).filter(function (d) { return d && str(d.day); }).slice(0, 7);
-    function side(x) { return x.count + ' × ' + x.avg_min + ' min'; }
+    function side(x) { return x.count + ' ' + plural(x.count, 'shower', 'showers'); }
     var count = num(sh.total) ? sh.total : h.count + e.count, mins = num(sh.total_min) ? sh.total_min : h.count * h.avg_min + e.count * e.avg_min;
     var line = count + ' ' + plural(count, 'shower', 'showers') + ', ' + minutes(mins) + ' in all';
     if (num(h.litres) && num(e.litres)) line += ' · ' + thousands(Math.round(h.litres + e.litres)) + ' litres';
     var html = days.length ? versus(side(h), side(e), days, '') : '<div class="r-versus">' + sideHtml(P[0], side(h)) + '<div class="r-pairs"></div>' + sideHtml(P[1], side(e)) + '</div>';
-    return { icon: 'showerHead', label: 'Showers', html: html, line: line, sub: days.length ? 'Minutes a day' : '', cls: 'r-widecard r-showercard', ms: 5000 };
+    var usual = 'usually ' + P[0].name + ' ' + h.avg_min + ' min, ' + P[1].name + ' ' + e.avg_min;
+    return { icon: 'showerHead', label: 'Showers', html: html, line: line, sub: (days.length ? 'Minutes a day · ' : '') + capital(usual),
+             cls: 'r-widecard r-showercard', ms: 5000 };
   }
 
   /* Eight weeks of faint bars, this week lit; gaps where a week has no figure. */
@@ -402,7 +404,11 @@
     var chart = energySeries(e), plain = energyStats(e, trends);
     if (!chart) return plain;
     if (!plain) return chart;
-    var parts = [money(e.week_cost, 2) + ' this week'], pct = e.vs_last_week_pct, ly = e.last_year_cost;
+    var parts = [money(e.week_cost, 2) + ' this week'], pct = e.vs_last_week_pct, ly = e.last_year_cost, sr = e.series;
+    if (!num(pct) && sr && sr.elec && sr.elec.length >= 2) {
+      var k = sr.elec.length - 1, t1 = (sr.elec[k] || 0) + ((sr.gas || [])[k] || 0), t0 = (sr.elec[k - 1] || 0) + ((sr.gas || [])[k - 1] || 0);
+      if (t0 > 0 && t1 > 0) pct = (t1 / t0 - 1) * 100;
+    }
     if (num(pct) && Math.round(pct)) parts.push(Math.abs(Math.round(pct)) + '% ' + (pct > 0 ? 'more' : 'less') + ' than last week');
     if (num(ly) && ly > 0 && Math.abs(e.week_cost - ly) >= 1) parts.push(money(Math.abs(e.week_cost - ly), 0) + (e.week_cost > ly ? ' more' : ' less') + ' than a year ago');
     chart.label = 'Energy';
@@ -481,6 +487,7 @@
       return { icon: 'radiator', label: 'Heating and hot water', value: h.gas_gbp, format: money, unit: 'on gas this week', line: line, ms: 4500 };
     }
     var top = Math.max.apply(null, got.map(function (w) { return w.gbp; })), last = weeks.length - 1;
+    if (!(top > 0)) return { icon: 'radiator', label: 'Heating and hot water', value: h.gas_gbp, format: money, unit: 'on gas this week', line: line, ms: 4500 };
     var cols = weeks.map(function (w, n) {
       var hgt = num(w.gbp) ? Math.max(8, Math.round(w.gbp / top * 300)) : 0;
       return '<div class="r-hcol' + (n === last ? ' r-now' : '') + '"><p class="r-hval">' + (num(w.gbp) ? money(w.gbp, 0) : '') + '</p>' +
@@ -529,8 +536,10 @@
     }).join('') + '</div>' : '';
     var side = '<div class="r-watch-side"><p class="r-big r-step"><span class="r-n">' + Math.round(hours) + '</span><span class="r-unit">' +
       plural(Math.round(hours), 'hour', 'hours') + '</span></p>' + (strip ? '<div class="r-step">' + strip + '</div>' : '') + '</div>';
-    var apps = named(w.apps, 'name'), via = apps.length >= 2 ? apps : named(w.inputs, 'name');
-    var split = via.length >= 2 ? viaBar(via.slice(0, 5)) : '';
+    var apps = named(w.apps, 'name'), via = (apps.length >= 2 ? apps : named(w.inputs, 'name')).slice(0, 4);
+    var listed = via.reduce(function (t, x) { return t + x.hours; }, 0);
+    if (via.length >= 2 && hours - listed >= 1) via.push({ name: 'Other', hours: hours - listed }); // the bar is the card's hours
+    var split = via.length >= 2 ? viaBar(via) : '';
     var line = split ? '' : w.binge && str(w.binge.day) && num(w.binge.hours) ? 'Biggest night ' + w.binge.day + ', ' + half(w.binge.hours) + ' hours' : '';
     return { icon: 'television', label: 'What we watched', html: '<div class="r-watch">' + side + shows + '</div>' + split, htmlSteps: true,
              line: line, cls: 'r-widecard r-watchcard', ms: 7000 };
@@ -718,7 +727,9 @@
     }
     return '<div class="r-burst" aria-hidden="true">' + html + '</div>';
   }
-  function bad(x) { return x && x.tone === 'bad'; }
+  /* Bad news: tone "bad", or, from a producer that doesn't say, a record about the most money spent. Never celebrated. */
+  var BAD_WORDS = /\b(priciest|dearest|most expensive|highest bill)\b/i;
+  function bad(x) { return !!x && (x.tone === 'bad' || (!x.tone && BAD_WORDS.test(str(x.text) || ''))); }
   function record(list) {
     var r = (list || []).filter(function (x) { return x && str(x.text) && !bad(x); })[0];
     if (!r) return null;
@@ -799,7 +810,7 @@
   /* What's on: the calendar's events, then the bins, a row each with the day and the time. */
   function whatsOn(n) {
     var rows = (n.events || []).filter(function (e) { return e && str(e.day) && str(e.title); }).slice(0, 12).map(function (e) {
-      return { icon: 'calendarClock', day: e.day, time: str(e.time), title: e.title };
+      return { icon: 'calendarClock', day: e.day, time: str(e.time), title: e.title, date: str(e.date) };
     });
     if (n.bins && str(n.bins.day)) rows.push({ icon: 'trashCanOutline', day: n.bins.day.slice(0, 3), time: '', title: (str(n.bins.what) || 'Bins') + ' bin' });
     var order = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -809,24 +820,74 @@
   /* Next week as a calendar: a column a day (from the forecast's first day, seven of them), its weather at the top and
      what's on under it, the bins included. */
   var WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  var CAL_EVENTS = 3; // a day shows this many, then "+N more"
   function nextWeek(n) {
     if (!n) return null;
     var fc = (n.forecast || []).filter(function (d) { return d && str(d.day) && num(d.high); }).slice(0, 7), on = whatsOn(n);
-    if (!fc.length && !on.length && !str(n.challenge)) return null;
-    var start = fc.length ? WEEKDAYS.indexOf(fc[0].day.slice(0, 3)) : 0, cols = [];
+    var meals = (n.meals || []).filter(function (m) { return m && str(m.day) && str(m.meal); });
+    if (!fc.length && !on.length && !meals.length) {
+      if (!str(n.challenge)) return null;
+      return { icon: 'calendarArrowRight', label: 'Next week', body: labelHtml('calendarArrowRight', 'Next week') + '<h2 class="r-hero-text r-step">' +
+               esc(n.challenge) + '</h2>' + (str(n.max) ? '<p class="r-line r-step">' + esc(n.max) + '</p>' : ''), ms: 4500 };
+    }
+    // the week runs from the forecast's first day, else from the first thing on
+    var first = fc.length ? fc[0].day : on.length ? on[0].day : meals.length ? meals[0].day : 'Mon';
+    var start = Math.max(0, WEEKDAYS.indexOf(first.slice(0, 3))), cols = [];
     for (var k = 0; k < 7; k++) {
-      var name = WEEKDAYS[((start < 0 ? 0 : start) + k) % 7];
+      var name = WEEKDAYS[(start + k) % 7];
       var wx = fc.filter(function (d) { return d.day.slice(0, 3) === name; })[0];
       var mine = on.filter(function (e) { return e.day.slice(0, 3) === name; });
+      var dinner = meals.filter(function (m) { return m.day.slice(0, 3) === name; })[0];
+      var shown = mine.slice(0, CAL_EVENTS).map(function (e) {
+        return '<p class="r-calev"><span class="r-event-icon">' + svg(e.icon) + '</span>' + (e.time ? '<b>' + esc(e.time) + '</b> ' : '') + esc(e.title) + '</p>';
+      }).join('') + (mine.length > CAL_EVENTS ? '<p class="r-calmore">+' + (mine.length - CAL_EVENTS) + ' more</p>' : '');
       cols.push('<div class="r-calday r-step' + (mine.length ? ' r-busy' : '') + '"' + delay(0.3 + k * 0.08) + '><p class="r-day-name">' + name + '</p>' +
         (wx ? '<p class="r-calwx"><span class="r-day-icon">' + svg(WEATHER[wx.condition] || 'weatherCloudy') + '</span>' + Math.round(wx.high) + '°' +
           (num(wx.low) ? '<span class="r-low">' + Math.round(wx.low) + '°</span>' : '') + '</p>' : '<p class="r-calwx"></p>') +
-        mine.map(function (e) {
-          return '<p class="r-calev"><span class="r-event-icon">' + svg(e.icon) + '</span>' + (e.time ? '<b>' + esc(e.time) + '</b> ' : '') + esc(e.title) + '</p>';
-        }).join('') + '</div>');
+        shown + (dinner ? '<p class="r-caldinner"><span class="r-event-icon">' + svg('silverwareForkKnife') + '</span>' + esc(dinner.meal) + '</p>' : '') + '</div>');
     }
     return { icon: 'calendarArrowRight', label: 'Next week', html: '<div class="r-cal">' + cols.join('') + '</div>', htmlSteps: true,
-             line: str(n.challenge), cls: 'r-widecard r-nextcard', ms: on.length ? 7000 : 5000 };
+             line: str(n.challenge), sub: str(n.max), cls: 'r-widecard r-nextcard', ms: on.length || meals.length ? 7000 : 5000 };
+  }
+
+  /* A few short lines under a label, each with its icon: what the house noticed, the week in other words, streaks. */
+  function listCard(icon, label, rows, cls) {
+    var html = '<div class="r-list">' + rows.map(function (r, k) {
+      return '<p class="r-listrow r-step"' + delay(0.35 + k * 0.2) + '><span class="r-event-icon">' + svg(iconFor(r.icon)) + '</span><span>' + esc(r.text) + '</span></p>';
+    }).join('') + '</div>';
+    return { icon: icon, label: label, html: html, htmlSteps: true, cls: 'r-widecard r-listcard' + (cls ? ' ' + cls : ''), ms: 3200 + rows.length * 1300 };
+  }
+  /* The house this week: the busiest room, the quietest day, the front door. Two of them at least. */
+  function houseCard(h) {
+    if (!h) return null;
+    var rows = [], b = h.busiest_room, d = h.door;
+    if (b && str(b.name) && num(b.share)) rows.push({ icon: 'home', text: 'The ' + b.name.toLowerCase() + ' saw ' + b.share + '% of the comings and goings' });
+    if (str(h.quietest_day)) rows.push({ icon: 'sofaOutline', text: h.quietest_day + ' was the quietest day' });
+    if (d && num(d.openings) && d.openings > 0) {
+      rows.push({ icon: 'doorOpen', text: 'The front door opened ' + d.openings + ' ' + plural(d.openings, 'time', 'times') + (str(d.peak_hour) ? ', most around ' + d.peak_hour : '') });
+    }
+    return rows.length >= 2 ? listCard('home', 'The house this week', rows) : null;
+  }
+  /* The week in other words (equivalents) and the streaks on the go: a producer's ready-made lines, up to four and three. */
+  function textRows(list, most) {
+    return (list || []).filter(function (x) { return x && str(x.text); }).slice(0, most);
+  }
+  function otherWords(list) {
+    var rows = textRows(list, 4);
+    return rows.length >= 2 ? listCard('scaleBalance', 'In other words', rows) : null;
+  }
+  function onARoll(list) {
+    var rows = textRows(list, 3);
+    return rows.length ? listCard('fire', 'On a roll', rows) : null;
+  }
+  /* This week's song: the most played track (the one the recap plays), or an old favourite in a quiet week. */
+  function song(t) {
+    if (!t || !str(t.title)) return null;
+    var why = t.source === 'favourite' ? 'An old favourite: nothing got much play this week'
+      : num(t.minutes) && t.minutes > 0 ? 'Played for ' + minutes(t.minutes) + ' this week' : '';
+    var body = labelHtml('musicNote', 'This week’s song') + '<h2 class="r-hero-text r-step">' + esc(t.title) + '</h2>' +
+      (str(t.artist) ? '<p class="r-line r-step">' + esc(t.artist) + '</p>' : '') + (why ? '<p class="r-sub r-step">' + esc(why) + '</p>' : '');
+    return { icon: 'musicNote', label: 'This week’s song', body: body, cls: 'r-songcard', ms: 5000 };
   }
 
   /* The finale: each category's winner one by one, a drumroll, then the name. */
@@ -876,8 +937,12 @@
       vacuumCard(s.vacuum, data.vacuumMap, pics),
       record(s.records),
       houseSays(s.house_says),
+      houseCard(s.house),
+      otherWords(s.equivalents),
+      onARoll(s.streaks),
       inNumbers(s.month_recap, false),
       nextWeek(s.next_week),
+      song(s.soundtrack),
     ]);
     return body.concat(highlightsBut(highlights(s.highlights), body), [guess(s.guess), winner(s.winner)]);
   }
@@ -1001,20 +1066,23 @@
       card.className = 'r-card' + (cards[n].kind === 'intro' ? ' r-intro' : '') + (cards[n].cls ? ' ' + cards[n].cls : '');
       card.innerHTML = cardHtml(cards[n]);
       stage.appendChild(card);
-      // the next card waits until the last has gone, so two never show at once (the C1 fades slowly)
-      if (old) {
-        card.classList.add('r-wait');
-        setTimeout(function () { card.classList.remove('r-wait'); void card.offsetWidth; card.classList.add('r-in'); }, CARD_GAP_MS);
-      } else {
+      // the next card waits until the last has gone, so two never show at once (the C1 fades slowly); its time, count
+      // and reveal start when it shows
+      function start() {
+        if (stopped || i !== n || !card.parentNode) return;
+        card.classList.remove('r-wait');
         void card.offsetWidth;
         card.classList.add('r-in');
+        var numEl = card.querySelector('.r-n');
+        if (numEl) countUp(numEl, cards[n]);
+        left = ms(cards[n]);
+        revealed = !cards[n].revealAt;
+        revealLeft = cards[n].revealAt || 0;
+        arm();
+        setBars(); setHint();
       }
-      var numEl = card.querySelector('.r-n');
-      if (numEl) countUp(numEl, cards[n]);
-      left = ms(cards[n]);
-      revealed = !cards[n].revealAt;
-      revealLeft = cards[n].revealAt || 0;
-      arm(); setBars(); setHint();
+      clearTimeout(timer); clearTimeout(revealTimer);
+      if (old) { card.classList.add('r-wait'); setTimeout(start, CARD_GAP_MS); } else start();
     }
     function setPaused(on) {
       if (stopped || on === paused) return;

@@ -169,18 +169,21 @@
     if (ev.r) ev.r.forEach(function (rid) { delete states[rid]; });
   }
   /* What the TV's players (tv.players, in order) are playing: the first one playing or paused with a title or an app,
-     as { app, title, picture, paused }; null when none is. */
+     as { app, title, picture, paused }, one that's playing first; null when none is. */
   function nowPlaying() {
     var list = (TV && TV.players) || [];
-    for (var n = 0; n < list.length; n++) {
-      var id = list[n], s = st(id).s, title = attr(id, 'media_title'), app = attr(id, 'app_name');
-      if ((s === 'playing' || s === 'paused') && (title || app)) {
-        var series = attr(id, 'media_series_title');
-        return { app: String(app || ''), title: String(series && title ? series + ' · ' + title : title || app), picture: attr(id, 'entity_picture') || '',
-                 paused: s === 'paused' };
+    function first(wanted) {
+      for (var n = 0; n < list.length; n++) {
+        var id = list[n], s = st(id).s, title = attr(id, 'media_title'), app = attr(id, 'app_name');
+        if (wanted.indexOf(s) >= 0 && (title || app)) {
+          var series = attr(id, 'media_series_title');
+          return { app: String(app || ''), title: String(series && title ? series + ' · ' + title : title || app), picture: attr(id, 'entity_picture') || '',
+                   paused: s === 'paused' };
+        }
       }
+      return null;
     }
-    return null;
+    return first(['playing']) || first(['paused']); // a paused Shield never hides a PS5 that's playing
   }
   /* "domain.service" with optional data and target, as in a Home Assistant action. */
   function call(service, data, target) {
@@ -350,8 +353,13 @@
       $('tv-line').textContent = on ? on.title : !src || dead(src) ? 'TV status unavailable' : players ? 'Nothing playing'
         : line.indexOf(lead) === 0 ? line.slice(lead.length) : line || source;
       var art = on && on.picture ? (/^(https?:|data:)/.test(on.picture) || useDemo ? on.picture : haBase() + on.picture) : '';
-      if ($('tv-art').getAttribute('src') !== art) { if (art) $('tv-art').setAttribute('src', art); else $('tv-art').removeAttribute('src'); }
-      $('tv-art').hidden = !art;
+      var img = $('tv-art');
+      if (img.getAttribute('src') !== art) {
+        img.hidden = true; // shown when it loads: a picture that 404s leaves no empty box
+        img.onload = function () { img.hidden = !img.getAttribute('src'); };
+        img.onerror = function () { img.hidden = true; };
+        if (art) img.setAttribute('src', art); else img.removeAttribute('src');
+      }
       all('[data-source]').forEach(function (b) {
         var sel = b.getAttribute('data-source') === source;
         b.classList.toggle('selected', sel); b.setAttribute('aria-pressed', sel ? 'true' : 'false');
@@ -626,7 +634,7 @@
      its map card uses, 2026.10 on), with the token HA hands out for it; fetched before the recap starts, as { 'z/x/y':
      URL }. Nothing (the routes drawn alone) with recap.street_maps false, an older HA, or no tiles needed. In the demo
      they come from OpenStreetMap itself. */
-  var MAP_TILES_MAX = 80, MAP_TILES_WAIT = 8000; // a month's map and two routes need about 60; HA fetches them cold
+  var MAP_TILES_MAX = 80, MAP_TILES_WAIT = 4000; // a month's map and two routes need about 60; past this the maps are left out
   function mapTiles(s, done) {
     var keys = RECAP.street_maps === false ? [] : window.HouseRecap.mapTiles(s);
     if (!keys.length) return done({});
@@ -700,6 +708,7 @@
     var cue = st(RECAP.cue), when = attr(RECAP.cue, 'last_triggered');
     if (cue.s !== 'on' || !when || when === cueSeen) return;
     cueSeen = when;
+    if (hiddenFromGuests(RECAP)) return; // recap.private: not while guests are in, not even when the cue starts it
     if (Date.now() - new Date(String(when).replace(/(\.\d{3})\d+/, '$1')).getTime() < 180000) openRecap(true);
   }
 

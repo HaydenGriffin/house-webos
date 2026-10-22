@@ -61,11 +61,12 @@ test('showers: a bar a day each, no contest; each person\'s count and length, th
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, n) => ({ day, alex: n % 2 ? 8 : 0, sam: n < 5 ? 19 : 0 }));
   const sh = { alex: { count: 3, avg_min: 8, litres: 150 }, sam: { count: 5, avg_min: 19, litres: 380 }, total: 8, total_min: 119, days };
   const card = find({ showers: sh }, 'Showers');
-  assert.strictEqual((card.html.match(/r-pbar r-p/g) || []).length, 14);
+  assert.strictEqual((card.html.match(/r-pbar r-p/g) || []).length, 8, 'a day without a shower has no bar');
+  assert.strictEqual((card.html.match(/r-pbar r-none/g) || []).length, 6);
   assert.ok(!card.html.includes('r-lost'), 'nobody wins a day');
-  assert.ok(card.html.includes('3 × 8 min') && card.html.includes('5 × 19 min'));
+  assert.ok(card.html.includes('3 showers') && card.html.includes('5 showers'));
   assert.strictEqual(card.line, '8 showers, 1h 59m in all · 530 litres');
-  assert.strictEqual(card.sub, 'Minutes a day');
+  assert.strictEqual(card.sub, 'Minutes a day · Usually Alex 8 min, Sam 19');
   assert.strictEqual(find({ showers: sh }, 'The shower duel'), undefined);
   const plain = find({ showers: { alex: { count: 1, avg_min: 9 }, sam: { count: 2, avg_min: 12 } } }, 'Showers');
   assert.strictEqual(plain.line, '3 showers, 33 min in all');
@@ -121,8 +122,8 @@ function player(t, nCards, opts) {
 
 test('it ends on completion, not on a clock', (t) => {
   const r = player(t, 3);
-  // the mocked clock runs one card's timer per tick
-  r.tick(5000); r.tick(5000); r.tick(4999);
+  // the mocked clock runs one card's timer per tick; each card after the first starts after the gap (the last one fading)
+  r.tick(5000); r.tick(380); r.tick(5000); r.tick(380); r.tick(4999);
   assert.deepStrictEqual(r.ended, []);
   assert.ok(r.shown().includes('Card 2'));
   r.tick(1);
@@ -143,7 +144,9 @@ test('pause holds the card past five minutes, then carries on with the time it h
   assert.ok(r.shown().includes('Card 0'), 'two seconds were left on the first card');
   r.tick(1);
   assert.ok(r.shown().includes('Card 1'));
-  r.tick(5000);
+  r.tick(380); r.tick(4999);
+  assert.deepStrictEqual(r.ended, [], 'the second card has its whole time once it shows');
+  r.tick(1);
   assert.deepStrictEqual(r.ended, ['done']);
 });
 
@@ -352,7 +355,7 @@ test('what we watched: the detail with two shows or three days, else the plain c
   assert.ok(detail.html.includes('r-shows') && detail.html.includes('6 h'));
   // where the hours went: the apps when there are two, else the inputs, as one split bar with a key
   assert.ok(/Netflix <b>9 h<\/b>/.test(detail.html) && /YouTube <b>3 h<\/b>/.test(detail.html) && !detail.html.includes('PS5'), detail.html);
-  assert.ok(detail.html.includes('style="width:75.00%"'));
+  assert.ok(detail.html.includes('style="width:45.00%"') && /Other <b>8 h<\/b>/.test(detail.html), 'the bar is all 20 hours, the rest as Other');
   const oneApp = Object.assign({}, w, { apps: [{ name: 'Netflix', hours: 9 }] });
   assert.ok(/PS5 <b>4½ h<\/b>/.test(find({ watched: oneApp }, 'What we watched').html));
   const days = find({ watched: { hours: 9, days: [{ day: 'Mon', hours: 2 }, { day: 'Tue', hours: 3 }, { day: 'Wed', hours: 4 }] } }, 'What we watched');
@@ -451,4 +454,51 @@ test('the week on a plate: each photo says its day and what it was; plain URLs s
   assert.ok(card.html.includes('<b class="r-plate-name">Mon · Chana masala</b>') && card.html.includes('>Tue</b>'));
   assert.strictEqual((card.html.match(/r-plate-name/g) || []).length, 2, 'no caption without a day or a name');
   assert.ok(card.html.includes('src="c.jpg"'));
+});
+
+test('a record about the priciest week is bad news even when the producer gave no tone', () => {
+  const recs = [{ icon: 'lightningBolt', text: '£38.76 on energy: the priciest week in 22 weeks' }];
+  assert.strictEqual(find({ records: recs }, 'New record'), undefined, 'no sparkles');
+  assert.ok(find({ records: recs }, 'Worth knowing'));
+  assert.ok(find({ records: [{ text: 'Sam’s 14,000 steps on Saturday: best in 8 weeks' }] }, 'New record'));
+});
+
+test('next week: three events a day then "+N more", the planned dinner, and Max\'s plan under it', () => {
+  const ev = ['A', 'B', 'C', 'D', 'E'].map((title) => ({ day: 'Tue', title }));
+  const card = find({ next_week: { forecast: [{ day: 'Mon', high: 12 }], events: ev, meals: [{ day: 'Tue', meal: 'Chana masala' }],
+                                   max: 'Max cleans the house on Wednesday at 09:00' } }, 'Next week');
+  const tue = card.html.split('r-calday')[2];
+  assert.ok(tue.includes('C</p>') && !tue.includes('D</p>') && tue.includes('+2 more'), tue);
+  assert.ok(tue.includes('r-caldinner') && tue.includes('Chana masala'));
+  assert.strictEqual(card.sub, 'Max cleans the house on Wednesday at 09:00');
+  const noForecast = find({ next_week: { events: [{ day: 'Thu', title: 'Party' }] } }, 'Next week');
+  assert.ok(noForecast.html.split('r-calday')[1].includes('>Thu<'), 'without a forecast the week starts at the first thing on');
+});
+
+test('the house, in other words, on a roll and the week\'s song: from the stats the producer already makes', () => {
+  const s = { house: { busiest_room: { name: 'Landing', share: 43 }, quietest_day: 'Thursday', door: { openings: 17, peak_hour: '15:00' } },
+              equivalents: [{ icon: 'kettle', text: 'Boil a kettle 300 times' }, { icon: 'movie', text: '64 hours of TV: about 32 films' }],
+              streaks: [{ icon: 'weatherNight', text: 'In bed before midnight 5 nights running' }],
+              soundtrack: { title: 'Kangaroo Court', artist: 'Capital Cities', minutes: 42, source: 'week' } };
+  const cards = load().build({ stats: stats(s) });
+  const house = cards.find((c) => c.label === 'The house this week');
+  assert.ok(house.html.includes('The landing saw 43% of the comings and goings') && house.html.includes('Thursday was the quietest day') &&
+            house.html.includes('The front door opened 17 times, most around 15:00'));
+  assert.ok(cards.find((c) => c.label === 'In other words').html.includes('32 films'));
+  assert.ok(cards.find((c) => c.label === 'On a roll').html.includes('5 nights running'));
+  const tune = cards.find((c) => c.label === 'This week’s song');
+  assert.ok(tune.body.includes('Kangaroo Court') && tune.body.includes('Capital Cities') && tune.body.includes('Played for 42 min this week'));
+  const quiet = load().build({ stats: stats({ house: { quietest_day: 'Monday' }, equivalents: [{ text: 'one' }], streaks: [] }) });
+  assert.ok(!labels(quiet).some((l) => /The house this week|In other words|On a roll/.test(l)), 'one line is not a card');
+});
+
+test('the reviews\' edge cases: energy change from the chart, a challenge alone, a week of £0 gas', () => {
+  const s = series(6);
+  s.elec[5] = 22; s.gas[5] = 0; s.elec[4] = 20; s.gas[4] = 0;
+  const card = find({ energy: { week_cost: 22, series: s } }, 'Energy');
+  assert.ok(/10% more than last week/.test(card.line), card.line);
+  const only = find({ next_week: { challenge: 'Sam needs 3 wins to take October' } }, 'Next week');
+  assert.ok(only.body.includes('Sam needs 3 wins') && !only.body.includes('r-calday'), 'no empty calendar');
+  const zero = find({ heating: { gas_gbp: 0, weeks: [1, 2, 3, 4].map((n) => ({ label: 'W' + n, gbp: 0 })) } }, 'Heating and hot water');
+  assert.ok(!zero.html && !JSON.stringify(zero).includes('NaN'));
 });

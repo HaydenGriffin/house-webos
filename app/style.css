@@ -423,13 +423,8 @@ section { min-width: 0; }
 .r-tile-pair b { margin-left: 16px; font: 600 58px/1.05 var(--num-font); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--text); white-space: nowrap; }
 
 /* Next week: the forecast strip, then the challenge. */
-.r-forecast { display: flex; }
-.r-day { flex: none; width: 200px; padding: 24px 0 28px; border-radius: 32px; background: var(--panel); text-align: center; }
-.r-day + .r-day { margin-left: 22px; }
 .r-day-name { font-weight: 400; font-size: 32px; color: var(--muted); }
 .r-day-icon { display: block; width: 80px; height: 80px; margin: 14px auto 12px; }
-.r-day-temp { font: 600 50px/1 var(--num-font); }
-.r-day-temp span { margin-left: 12px; font-weight: 400; font-size: 34px; color: var(--muted); }
 .r-nextcard .r-line { margin-top: 56px; max-width: 1600px; }
 
 /* The winner: each category's chip one by one, a drumroll, then the name huge in its colour under a crown. */
@@ -571,17 +566,7 @@ section { min-width: 0; }
 .r-floors-1 .r-floor { width: 700px; }
 .r-floor-name { margin-top: 16px; font-size: 38px; color: var(--muted); }
 
-/* Next week with what's on: the forecast, then the events a row each. */
-.r-nextevents .r-forecast .r-day { padding: 18px 0 20px; }
-.r-nextevents .r-day-icon { width: 64px; height: 64px; margin: 8px auto; }
-.r-events { margin-top: 40px; }
-.r-event { display: flex; align-items: center; height: 64px; font-size: 44px; }
-.r-event + .r-event { margin-top: 10px; }
 .r-event-icon { flex: none; width: 48px; height: 48px; color: var(--muted); }
-.r-event-day { flex: none; width: 120px; margin-left: 24px; color: var(--muted); }
-.r-event-time { flex: none; width: 150px; font: 600 40px/1 var(--num-font); font-variant-numeric: tabular-nums; color: var(--muted); }
-.r-event-title { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.r-nextevents .r-line { margin-top: 30px; font-size: 50px; }
 
 
 /* What we watched: where the hours went, one bar split between the apps (or inputs), each named. */
@@ -626,3 +611,16 @@ section { min-width: 0; }
   font-size: 30px; line-height: 1.25; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
 .r-calev .r-event-icon { display: inline-block; width: 30px; height: 30px; margin-right: 8px; vertical-align: -5px; }
 .r-calev b { font-weight: 600; color: var(--muted); }
+.r-calmore { margin-top: 10px; font-size: 26px; color: var(--muted); }
+.r-caldinner { margin-top: 14px; padding-top: 14px; border-top: 2px solid var(--line); font-size: 28px; line-height: 1.25; color: var(--warm); }
+.r-caldinner .r-event-icon { display: inline-block; width: 28px; height: 28px; margin-right: 8px; vertical-align: -4px; color: var(--warm); }
+
+/* Lines with an icon each: the house this week, in other words, on a roll. */
+.r-list { margin-top: 48px; }
+.r-listrow { display: flex; align-items: center; font-size: 56px; line-height: 1.2; }
+.r-listrow + .r-listrow { margin-top: 40px; }
+.r-listrow .r-event-icon { flex: none; width: 72px; height: 72px; margin-right: 32px; color: var(--warm); }
+.r-listcard .r-mark { display: none; }
+
+/* This week's song: the title big, the artist under it. */
+.r-songcard .r-hero-text { max-width: 1600px; }
