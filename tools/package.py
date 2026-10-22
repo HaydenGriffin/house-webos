@@ -2,7 +2,7 @@
 home and safe to share; the config goes onto the TV separately, after installing (tools/push_config.py).
 
     python3 tools/package.py                         # writes dist/<id>_<version>_all.ipk
-    python3 tools/package.py --app-id com.example.house --version 1.5.0
+    python3 tools/package.py --app-id com.example.house --version 1.6.0
 
 Install with the webOS CLI in Developer Mode:
 

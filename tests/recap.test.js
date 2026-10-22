@@ -57,33 +57,20 @@ test('restless says 1 time, not 1 times', () => {
   assert.strictEqual(card.unit, 'time');
 });
 
-const showerLine = (showers) => load().build({ stats: stats({ showers }) }).find((c) => c.label === 'The shower duel').line;
-
-test('the shower duel says who used more water this week, with the energy, when the gap is worth saying', () => {
-  assert.strictEqual(showerLine({ alex: { count: 6, avg_min: 8, avg_temp: 41, litres: 210, kwh: 6.1 }, sam: { count: 6, avg_min: 12, avg_temp: 44, litres: 340, kwh: 9.8 } }),
-    'Sam’s showers used 130 more litres this week, 3.7 kWh more to heat');
-  assert.strictEqual(showerLine({ alex: { count: 5, avg_min: 8, litres: 300 }, sam: { count: 5, avg_min: 12, litres: 210 } }),
-    'Alex’s showers used 90 more litres this week');
-});
-
-const litres = (a, b, extra) => showerLine({ alex: Object.assign({ count: 4, avg_min: 8, litres: a }, extra && extra.alex),
-  sam: Object.assign({ count: 4, avg_min: 9, litres: b }, extra && extra.sam) });
-
-test('the water gap needs 10 litres and 15% of the larger, both inclusive', () => {
-  assert.strictEqual(litres(60, 50), 'Alex’s showers used 10 more litres this week');
-  assert.strictEqual(litres(59, 50), '');
-  assert.strictEqual(litres(100, 85), 'Alex’s showers used 15 more litres this week');
-  assert.strictEqual(litres(100, 86), '');
-});
-
-test('the energy clause rounds to tenths before the 0.5 kWh threshold', () => {
-  assert.strictEqual(litres(300, 200, { alex: { kwh: 2.3 }, sam: { kwh: 1.8 } }), 'Alex’s showers used 100 more litres this week, 0.5 kWh more to heat');
-  assert.strictEqual(litres(300, 200, { alex: { kwh: 2.2 }, sam: { kwh: 1.8 } }), 'Alex’s showers used 100 more litres this week');
-});
-
-test('unequal shower counts are named, and the energy left out', () => {
-  assert.strictEqual(litres(50, 330, { alex: { count: 1, kwh: 1 }, sam: { count: 7, kwh: 9 } }), 'Sam’s 7 showers used 280 more litres than Alex’s 1 this week');
-  assert.strictEqual(litres(120, 90, { alex: { count: 1 }, sam: { count: 3 } }), 'Alex’s 1 shower used 30 more litres than Sam’s 3 this week');
+test('showers: a bar a day each, no contest; each person\'s count and length, the house\'s week in the line', () => {
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, n) => ({ day, alex: n % 2 ? 8 : 0, sam: n < 5 ? 19 : 0 }));
+  const sh = { alex: { count: 3, avg_min: 8, litres: 150 }, sam: { count: 5, avg_min: 19, litres: 380 }, total: 8, total_min: 119, days };
+  const card = find({ showers: sh }, 'Showers');
+  assert.strictEqual((card.html.match(/r-pbar r-p/g) || []).length, 8, 'a day without a shower has no bar');
+  assert.strictEqual((card.html.match(/r-pbar r-none/g) || []).length, 6);
+  assert.ok(!card.html.includes('r-lost'), 'nobody wins a day');
+  assert.ok(card.html.includes('3 showers') && card.html.includes('5 showers'));
+  assert.strictEqual(card.line, '8 showers, 1h 59m in all · 530 litres');
+  assert.strictEqual(card.sub, 'Minutes a day · Usually Alex 8 min, Sam 19');
+  assert.strictEqual(find({ showers: sh }, 'The shower duel'), undefined);
+  const plain = find({ showers: { alex: { count: 1, avg_min: 9 }, sam: { count: 2, avg_min: 12 } } }, 'Showers');
+  assert.strictEqual(plain.line, '3 showers, 33 min in all');
+  assert.strictEqual(find({ showers: { alex: { count: 1, avg_min: 9 } } }, 'Showers'), undefined);
 });
 
 test('the quiz answer must be one of the three tiles shown', () => {
@@ -96,11 +83,6 @@ test('the quiz answer must be one of the three tiles shown', () => {
   assert.ok(!card.body.includes('>d<'), 'only three tiles');
 });
 
-test('a small water gap, or one side without litres, falls back to the hotter showers', () => {
-  const hot = { alex: { count: 5, avg_min: 8, avg_temp: 41 }, sam: { count: 6, avg_min: 12, avg_temp: 44 } };
-  assert.strictEqual(showerLine({ alex: Object.assign({ litres: 300 }, hot.alex), sam: Object.assign({ litres: 290 }, hot.sam) }), 'Sam’s showers run 3° hotter');
-  assert.strictEqual(showerLine({ alex: Object.assign({ litres: 300 }, hot.alex), sam: hot.sam }), 'Sam’s showers run 3° hotter');
-});
 
 test('a month tile pair needs both people', () => {
   const R = load();
@@ -140,8 +122,8 @@ function player(t, nCards, opts) {
 
 test('it ends on completion, not on a clock', (t) => {
   const r = player(t, 3);
-  // the mocked clock runs one card's timer per tick
-  r.tick(5000); r.tick(5000); r.tick(4999);
+  // the mocked clock runs one card's timer per tick; each card after the first starts after the gap (the last one fading)
+  r.tick(5000); r.tick(380); r.tick(5000); r.tick(380); r.tick(4999);
   assert.deepStrictEqual(r.ended, []);
   assert.ok(r.shown().includes('Card 2'));
   r.tick(1);
@@ -162,7 +144,9 @@ test('pause holds the card past five minutes, then carries on with the time it h
   assert.ok(r.shown().includes('Card 0'), 'two seconds were left on the first card');
   r.tick(1);
   assert.ok(r.shown().includes('Card 1'));
-  r.tick(5000);
+  r.tick(380); r.tick(4999);
+  assert.deepStrictEqual(r.ended, [], 'the second card has its whole time once it shows');
+  r.tick(1);
   assert.deepStrictEqual(r.ended, ['done']);
 });
 
@@ -293,20 +277,31 @@ test('what we did: an item needs a known person, a day and a name or kind; given
   assert.ok(!card.html.includes('r-who r-p2'), 'nobody with nothing done');
 });
 
-test('routePath: fits the box, keeps north up and the shape, null without two usable points', () => {
+test('routeMap: fits every line in the box in Web Mercator, north up, with the tiles under it; null without a line', () => {
   const R = load();
-  const r = R.routePath([[51.5, -0.1], [51.51, -0.1], [51.51, -0.08]], 800, 500, 40);
+  const m = R.routeMap([[[51.5, -0.1], [51.51, -0.1], [51.51, -0.08]]], 800, 500, 40);
   const xy = (p) => p.split(/[ML]/).filter(Boolean).map((q) => q.split(',').map(Number));
-  const pts = xy(r.d);
+  const pts = xy(m.lines[0].d);
   pts.forEach(([x, y]) => assert.ok(x >= 39.9 && x <= 760.1 && y >= 39.9 && y <= 460.1, 'inside the padding: ' + x + ',' + y));
   assert.ok(pts[1][1] < pts[0][1], 'north is up');
   assert.ok(pts[2][0] > pts[1][0], 'east is right');
-  const wide = (pts[2][0] - pts[1][0]) / (pts[0][1] - pts[1][1]);
-  assert.ok(Math.abs(wide - 0.02 * Math.cos(51.505 * Math.PI / 180) / 0.01) < 0.01, 'longitude shrunk by the latitude');
-  assert.deepStrictEqual(Array.from(r.start), pts[0]);
-  assert.strictEqual(R.routePath([[51.5, -0.1]], 800, 500, 40), null);
-  assert.strictEqual(R.routePath([[51.5, -0.1], [51.5, -0.1]], 800, 500, 40), null);
-  assert.strictEqual(R.routePath([['a', 1], null, [51.5, -0.1]], 800, 500, 40), null);
+  assert.deepStrictEqual(Array.from(m.lines[0].start), pts[0]);
+  assert.deepStrictEqual(Array.from(m.lines[0].end), pts[2]);
+  // the tiles cover the whole box, at the zoom whose tiles show near 256 px, and a point sits on its own tile
+  const covers = (x, y) => m.tiles.some((t) => t.left <= x && x <= t.left + t.size && t.top <= y && y <= t.top + t.size);
+  [[0, 0], [800, 0], [0, 500], [800, 500]].forEach(([x, y]) => assert.ok(covers(x, y), x + ',' + y));
+  const z = Number(m.tiles[0].key.split('/')[0]);
+  assert.strictEqual(z, 15);
+  const n = 2 ** z, tx = (-0.1 + 180) / 360 * n, t = m.tiles.find((k) => k.key.split('/')[1] === String(Math.floor(tx)));
+  assert.ok(Math.abs(t.left + (tx - Math.floor(tx)) * (t.size - 0.4) - pts[0][0]) < 0.3, 'the start sits on its tile');
+  // two lines share one fit
+  const two = R.routeMap([[[51.5, -0.1], [51.51, -0.1]], [[51.5, -0.2], [51.49, -0.21]]], 800, 500, 40);
+  assert.strictEqual(two.lines.length, 2);
+  assert.ok(xy(two.lines[1].d)[0][0] < xy(two.lines[0].d)[0][0], 'the western one is left');
+  assert.strictEqual(Number(R.routeMap([[[51.5, -0.1], [51.50001, -0.10001]]], 800, 500, 40).tiles[0].key.split('/')[0]), 17, 'never past 17');
+  assert.strictEqual(R.routeMap([[[51.5, -0.1]]], 800, 500, 40), null);
+  assert.strictEqual(R.routeMap([[[51.5, -0.1], [51.5, -0.1]]], 800, 500, 40), null);
+  assert.strictEqual(R.routeMap([[['a', 1], null, [51.5, -0.1]]], 800, 500, 40), null);
 });
 
 test('out and about: only with a route, two at most, the longest first', () => {
@@ -317,6 +312,36 @@ test('out and about: only with a route, two at most, the longest first', () => {
     act('alex', 'cycle', 'Wed', '2026-10-21', { name: 'Middle', km: 6, route: loop(0.03) })];
   const card = find({ activities: { items } }, 'Out and about');
   assert.ok(card.html.indexOf('Long') < card.html.indexOf('Middle') && !card.html.includes('Short'));
+  assert.ok(!card.html.includes('r-map-tiles') && !card.html.includes('OpenStreetMap'), 'no tiles given: the lines alone');
+});
+
+test('out and about: a street map under each route when every tile came, none when one is missing', () => {
+  const R = load();
+  const items = [act('sam', 'run', 'Tue', '2026-10-20', { name: 'Long', km: 10, route: [[51.5, -0.1], [51.52, -0.1], [51.52, -0.07]] })];
+  const keys = R.mapTiles(stats({ activities: { items } }));
+  assert.ok(keys.length >= 4 && keys.every((k) => /^\d+\/\d+\/\d+$/.test(k)));
+  const all = Object.fromEntries(keys.map((k) => [k, 'http://ha/api/map_tiles/raster/' + k + '.png?token=t']));
+  const card = find({ activities: { items } }, 'Out and about', { tiles: all });
+  assert.strictEqual((card.html.match(/<img /g) || []).length, keys.length);
+  assert.ok(card.html.includes('r-on-map') && card.html.includes('© OpenStreetMap contributors') && card.html.includes('r-route-halo'));
+  delete all[keys[0]];
+  assert.ok(!find({ activities: { items } }, 'Out and about', { tiles: all }).html.includes('<img '));
+});
+
+test('where we went: the last four weeks on one map, from three routes, with each person\'s count and km', () => {
+  const R = load();
+  const r = (d) => [[51.5 + d, -0.1], [51.51 + d, -0.1 + d]];
+  const month = { first: '2026-09-28', last: '2026-10-25', items: [
+    { who: 'alex', kind: 'run', date: '2026-10-02', km: 5, route: r(0) }, { who: 'sam', kind: 'walk', date: '2026-10-10', km: 3.2, route: r(0.01) },
+    { who: 'alex', kind: 'walk', date: '2026-10-21', km: 7.13, route: r(0.02) }, { who: 'nobody', kind: 'walk', date: '2026-10-22', route: r(0.03) }] };
+  const card = find({ month_routes: month }, 'Where we went');
+  assert.strictEqual(card.sub, 'The last four weeks');
+  assert.strictEqual((card.html.match(/<path class="r-p\d"/g) || []).length, 3, 'an unknown person is left out');
+  assert.ok(/Alex<\/b> 2 routes · 12\.1 km/.test(card.html) && /Sam<\/b> 1 route · 3\.2 km/.test(card.html), card.html);
+  assert.strictEqual(find({ month_routes: { items: month.items.slice(0, 2) } }, 'Where we went'), undefined);
+  const keys = R.mapTiles(stats({ month_routes: month }));
+  const tiles = Object.fromEntries(keys.map((k) => [k, 'x/' + k]));
+  assert.ok(find({ month_routes: month }, 'Where we went', { tiles }).html.includes('r-map-tiles'));
 });
 
 /* ---------- what we watched ---------- */
@@ -325,14 +350,16 @@ test('what we watched: the detail with two shows or three days, else the plain c
   assert.strictEqual(plain.value, 12);
   assert.strictEqual(plain.line, 'Mostly The Bear');
   const w = { hours: 20, top: [{ title: 'A', hours: 6 }, { title: 'B', hours: 3 }], inputs: [{ name: 'Shield', hours: 15 }, { name: 'PS5', hours: 4.5 }],
-              apps: [{ name: 'Netflix', hours: 9 }] };
+              apps: [{ name: 'Netflix', hours: 9 }, { name: 'YouTube', hours: 3 }] };
   const detail = find({ watched: w }, 'What we watched');
   assert.ok(detail.html.includes('r-shows') && detail.html.includes('6 h'));
-  assert.strictEqual(detail.line, 'Shield 15 h · PS5 4½ h', 'inputs when there are two, else apps');
-  const one = Object.assign({}, w, { inputs: [{ name: 'Shield', hours: 15 }] });
-  assert.strictEqual(find({ watched: one }, 'What we watched').line, 'Netflix 9 h');
+  // where the hours went: the apps when there are two, else the inputs, as one split bar with a key
+  assert.ok(/Netflix <b>9 h<\/b>/.test(detail.html) && /YouTube <b>3 h<\/b>/.test(detail.html) && !detail.html.includes('PS5'), detail.html);
+  assert.ok(detail.html.includes('style="width:45.00%"') && /Other <b>8 h<\/b>/.test(detail.html), 'the bar is all 20 hours, the rest as Other');
+  const oneApp = Object.assign({}, w, { apps: [{ name: 'Netflix', hours: 9 }] });
+  assert.ok(/PS5 <b>4½ h<\/b>/.test(find({ watched: oneApp }, 'What we watched').html));
   const days = find({ watched: { hours: 9, days: [{ day: 'Mon', hours: 2 }, { day: 'Tue', hours: 3 }, { day: 'Wed', hours: 4 }] } }, 'What we watched');
-  assert.ok(days.html.includes('r-tvdays'));
+  assert.ok(days.html.includes('r-tvdays') && days.html.includes('<b>4</b>'), 'each day says its hours');
 });
 
 /* ---------- new recipes ---------- */
@@ -349,16 +376,32 @@ test('new recipes: a card each for the first-time ones, three at most, the pictu
 
 /* ---------- energy over time, and records ---------- */
 const series = (n) => ({ labels: Array.from({ length: n }, (_, k) => 'W' + (30 + k)), elec: Array(n).fill(15), gas: Array(n).fill(5) });
-test('energy over time: four weeks with a figure at least, twelve shown at most, the change in a line', () => {
-  assert.strictEqual(find({ energy: { week_cost: 20, series: series(3) } }, 'Energy over time'), undefined);
+test('energy: one card, the twelve weeks with the week, last week and last year in the line', () => {
+  assert.strictEqual(find({ energy: { week_cost: 20, series: series(3) } }, 'Energy').html, undefined, 'too few weeks: the plain card');
   const s = series(14);
   s.elec[13] = 25;
-  const card = find({ energy: { week_cost: 30, series: s } }, 'Energy over time');
+  const cards = load().build({ stats: stats({ energy: { week_cost: 30, vs_last_week_pct: 12, last_year_cost: 34, series: s } }) });
+  assert.strictEqual(cards.filter((c) => /Energy/.test(c.label)).length, 1, 'energy once');
+  const card = cards.find((c) => c.label === 'Energy');
   assert.strictEqual((card.html.match(/r-ecol/g) || []).length, 12);
   assert.ok(!card.html.includes('>W30<') && card.html.includes('>W43<'));
-  assert.strictEqual(card.line, '£30.00 this week, 50% more than the week before');
+  assert.strictEqual(card.line, '£30.00 this week · 12% more than last week · £4 less than a year ago');
   assert.ok(!card.html.includes('Same week last year'), 'no key for a missing last year');
   assert.ok(find({ energy: { week_cost: 20 } }, 'Energy'), 'the old card stays');
+});
+
+test('heating and hot water: the weeks as bars with the cold under each; a highlight saying the same is left out', () => {
+  const weeks = ['31 Aug', '7 Sep', '14 Sep', '21 Sep', '28 Sep', '5 Oct', '12 Oct', '19 Oct'].map((label, n) => ({ label, gbp: n < 2 ? null : 6 + n, temp: 18 - n }));
+  const h = { gas_gbp: 13, prev_gbp: 12, weeks, line: '£1 more than last week' };
+  const extra = { highlights: [{ label: 'Heating and hot water', text: '£13' }, { label: 'Ewa’s kitchen', value: 4 }] };
+  const cards = load().build({ stats: stats(Object.assign({ heating: h }, extra)) });
+  const card = cards.find((c) => c.label === 'Heating and hot water');
+  assert.strictEqual(cards.filter((c) => c.label === 'Heating and hot water').length, 1);
+  assert.ok(cards.some((c) => c.label === 'Ewa’s kitchen'), 'other highlights stay');
+  assert.strictEqual((card.html.match(/r-hcol/g) || []).length, 8);
+  assert.ok(card.html.includes('>£13<') && card.html.includes('>11°<') && card.html.includes('class="r-none"'));
+  assert.strictEqual(card.line, '£13.00 on gas this week · £1 more than last week');
+  assert.strictEqual(find({ heating: { gas_gbp: 13, weeks: weeks.slice(0, 4) } }, 'Heating and hot water').value, 13, 'two weeks: the one number');
 });
 
 test('a bad record is said plainly, with no sparkles; a good one still celebrates', () => {
@@ -383,17 +426,79 @@ test('the vacuum shows its floors when their pictures loaded, else the one map',
 });
 
 /* ---------- next week ---------- */
-test('next week: events and the bins in day order, and the card shows with events alone', () => {
-  const next = { events: [{ day: 'Sat', time: '10:00', title: 'Boiler' }, { day: 'Tue', time: '18:30', title: 'Dinner' }, { day: 'Tue', title: 'Birthday' }],
+test('next week: a calendar, a column a day from the forecast\'s first, its weather and what\'s on, the bins too', () => {
+  const next = { forecast: [{ day: 'Mon', condition: 'rainy', high: 14, low: 9 }, { day: 'Tue', condition: 'sunny', high: 16 }],
+                 events: [{ day: 'Sat', time: '10:00', title: 'Boiler' }, { day: 'Tue', time: '18:30', title: 'Dinner' }, { day: 'Tue', title: 'Birthday' }],
                  bins: { day: 'Monday', what: 'Garden' } };
   const card = find({ next_week: next }, 'Next week');
-  const at = (t) => card.html.indexOf(t);
-  assert.ok(at('Garden bin') < at('Birthday') && at('Birthday') < at('Dinner') && at('Dinner') < at('Boiler'), card.html);
-  assert.strictEqual(find({ next_week: { bins: { day: 'Monday' } } }, 'Next week'), undefined, 'bins alone are not a card');
+  const cols = card.html.split('r-calday').slice(1);
+  assert.strictEqual(cols.length, 7);
+  assert.ok(cols[0].includes('>Mon<') && cols[0].includes('Garden bin') && cols[0].includes('14°'));
+  assert.ok(cols[1].indexOf('Birthday') < cols[1].indexOf('Dinner') && cols[1].includes('<b>18:30</b>'), cols[1]);
+  assert.ok(cols[5].includes('>Sat<') && cols[5].includes('Boiler') && cols[5].includes('r-busy'));
+  assert.ok(!cols[2].includes('r-busy') && !cols[2].includes('°'), 'no forecast, nothing on: an empty day');
+  const fri = find({ next_week: { forecast: [{ day: 'Fri', high: 12 }], events: [{ day: 'Thu', title: 'Party' }] } }, 'Next week');
+  assert.ok(fri.html.split('r-calday')[7].includes('Party'), 'the week runs from the forecast\'s first day');
+  assert.strictEqual(find({ next_week: { bins: { day: 'Monday' } } }, 'Next week').html.includes('Bins bin'), true, 'the bins make a card');
 });
 
 test('a week without restless, goals or house_says still builds', () => {
   const labels_ = labels(load().build({ stats: stats({ restless: null, goals: null, house_says: null, records: [{ text: 'A: b' }] }) }));
   assert.ok(!labels_.includes('Up in the night') && !labels_.includes('The house says'));
   assert.ok(labels_.includes('Energy'));
+});
+
+test('the week on a plate: each photo says its day and what it was; plain URLs still work', () => {
+  const photos = [{ url: 'a.jpg', day: 'Mon', name: 'Chana masala' }, { url: 'b.jpg', day: 'Tue' }, 'c.jpg'];
+  const card = find({ food: { photos: [], pick: null } }, 'The week on a plate', { foodPhotos: photos });
+  assert.ok(card.html.includes('<b class="r-plate-name">Mon · Chana masala</b>') && card.html.includes('>Tue</b>'));
+  assert.strictEqual((card.html.match(/r-plate-name/g) || []).length, 2, 'no caption without a day or a name');
+  assert.ok(card.html.includes('src="c.jpg"'));
+});
+
+test('a record about the priciest week is bad news even when the producer gave no tone', () => {
+  const recs = [{ icon: 'lightningBolt', text: '£38.76 on energy: the priciest week in 22 weeks' }];
+  assert.strictEqual(find({ records: recs }, 'New record'), undefined, 'no sparkles');
+  assert.ok(find({ records: recs }, 'Worth knowing'));
+  assert.ok(find({ records: [{ text: 'Sam’s 14,000 steps on Saturday: best in 8 weeks' }] }, 'New record'));
+});
+
+test('next week: three events a day then "+N more", the planned dinner, and Max\'s plan under it', () => {
+  const ev = ['A', 'B', 'C', 'D', 'E'].map((title) => ({ day: 'Tue', title }));
+  const card = find({ next_week: { forecast: [{ day: 'Mon', high: 12 }], events: ev, meals: [{ day: 'Tue', meal: 'Chana masala' }],
+                                   max: 'Max cleans the house on Wednesday at 09:00' } }, 'Next week');
+  const tue = card.html.split('r-calday')[2];
+  assert.ok(tue.includes('C</p>') && !tue.includes('D</p>') && tue.includes('+2 more'), tue);
+  assert.ok(tue.includes('r-caldinner') && tue.includes('Chana masala'));
+  assert.strictEqual(card.sub, 'Max cleans the house on Wednesday at 09:00');
+  const noForecast = find({ next_week: { events: [{ day: 'Thu', title: 'Party' }] } }, 'Next week');
+  assert.ok(noForecast.html.split('r-calday')[1].includes('>Thu<'), 'without a forecast the week starts at the first thing on');
+});
+
+test('the house, in other words, on a roll and the week\'s song: from the stats the producer already makes', () => {
+  const s = { house: { busiest_room: { name: 'Landing', share: 43 }, quietest_day: 'Thursday', door: { openings: 17, peak_hour: '15:00' } },
+              equivalents: [{ icon: 'kettle', text: 'Boil a kettle 300 times' }, { icon: 'movie', text: '64 hours of TV: about 32 films' }],
+              streaks: [{ icon: 'weatherNight', text: 'In bed before midnight 5 nights running' }],
+              soundtrack: { title: 'Kangaroo Court', artist: 'Capital Cities', minutes: 42, source: 'week' } };
+  const cards = load().build({ stats: stats(s) });
+  const house = cards.find((c) => c.label === 'The house this week');
+  assert.ok(house.html.includes('The landing saw 43% of the comings and goings') && house.html.includes('Thursday was the quietest day') &&
+            house.html.includes('The front door opened 17 times, most around 15:00'));
+  assert.ok(cards.find((c) => c.label === 'In other words').html.includes('32 films'));
+  assert.ok(cards.find((c) => c.label === 'On a roll').html.includes('5 nights running'));
+  const tune = cards.find((c) => c.label === 'This week’s song');
+  assert.ok(tune.body.includes('Kangaroo Court') && tune.body.includes('Capital Cities') && tune.body.includes('Played for 42 min this week'));
+  const quiet = load().build({ stats: stats({ house: { quietest_day: 'Monday' }, equivalents: [{ text: 'one' }], streaks: [] }) });
+  assert.ok(!labels(quiet).some((l) => /The house this week|In other words|On a roll/.test(l)), 'one line is not a card');
+});
+
+test('the reviews\' edge cases: energy change from the chart, a challenge alone, a week of £0 gas', () => {
+  const s = series(6);
+  s.elec[5] = 22; s.gas[5] = 0; s.elec[4] = 20; s.gas[4] = 0;
+  const card = find({ energy: { week_cost: 22, series: s } }, 'Energy');
+  assert.ok(/10% more than last week/.test(card.line), card.line);
+  const only = find({ next_week: { challenge: 'Sam needs 3 wins to take October' } }, 'Next week');
+  assert.ok(only.body.includes('Sam needs 3 wins') && !only.body.includes('r-calday'), 'no empty calendar');
+  const zero = find({ heating: { gas_gbp: 0, weeks: [1, 2, 3, 4].map((n) => ({ label: 'W' + n, gbp: 0 })) } }, 'Heating and hot water');
+  assert.ok(!zero.html && !JSON.stringify(zero).includes('NaN'));
 });

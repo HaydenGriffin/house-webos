@@ -199,7 +199,11 @@
         nights: rows([492, 530, 601, 455, 512, 548, 467], [470, 455, 498, 470, 501, 489, 520]),
         bed_race: { who: 'sam', nights: 5, of: 7 },
       },
-      showers: { alex: { count: 6, avg_min: 9, avg_temp: 41.2, litres: 280, kwh: 8.4 }, sam: { count: 7, avg_min: 14, avg_temp: 43.0, litres: 470, kwh: 14.6 } },
+      showers: { alex: { count: 6, avg_min: 9, avg_temp: 41.2, litres: 280, kwh: 8.4 }, sam: { count: 7, avg_min: 14, avg_temp: 43.0, litres: 470, kwh: 14.6 },
+                 total: 13, total_min: 152, days: rows([8, 10, 0, 9, 11, 7, 9], [14, 12, 16, 13, 0, 18, 25]) },
+      heating: { gas_gbp: 11.8, weeks: ['W35', 'W36', 'W37', 'W38', 'W39', 'W40', 'W41', 'W42'].map(function (label, n) {
+        return { label: label, gbp: [4.1, 3.9, 4.6, 5.2, 7.9, 8.1, 10.2, 11.8][n], temp: [19, 18, 17, 15, 13, 12, 10, 9][n] };
+      }), line: '£1.60 more than last week (colder: 9° vs 10°)' },
       energy: { week_cost: 29.6, vs_last_week_pct: 12, series: {
         labels: ['W31', 'W32', 'W33', 'W34', 'W35', 'W36', 'W37', 'W38', 'W39', 'W40', 'W41', 'W42'],
         elec: [17.2, 16.8, 18.1, 17.5, 16.2, 17.9, 15.8, 17.4, 15.6, 17.1, 16.2, 17.8],
@@ -224,6 +228,20 @@
         act('alex', 'walk', 'Walk to the market', 3, '12:20', 48, 3.4),
         act('sam', 'run', 'parkrun', 5, '09:00', 29, 5.0, loop(51.4613, -0.1156, 380, 450, 140, 3)),
         act('alex', 'cycle', 'Ride out to Richmond', 6, '10:15', 64, 18.6),
+      ] },
+      house: { busiest_room: { name: 'Kitchen', share: 38 }, quietest_day: 'Tuesday', door: { openings: 41, peak_hour: '08:00' } },
+      equivalents: [{ icon: 'walk', text: 'Together you walked 68 km: London to Brighton, nearly' }, { icon: 'kettle', text: 'This week’s electricity would boil a kettle 412 times' },
+                    { icon: 'movie', text: '32 hours of TV: about 16 films back to back' }],
+      streaks: [{ icon: 'weatherNight', text: 'In bed before midnight 5 nights running' }, { icon: 'fire', text: 'Sam: 9 days in a row over 5,000 steps' }],
+      soundtrack: { title: 'Dreams', artist: 'Fleetwood Mac', minutes: 47, source: 'week' },
+      month_routes: { first: iso(-21), last: iso(6), items: [
+        { who: 'alex', kind: 'run', date: iso(-20), km: 6.1, route: loop(51.5094, -0.1726, 600, 380, 60, 5) },
+        { who: 'sam', kind: 'run', date: iso(-16), km: 5.0, route: loop(51.4613, -0.1156, 380, 450, 60, 3) },
+        { who: 'alex', kind: 'walk', date: iso(-13), km: 4.2, route: loop(51.4785, -0.1490, 420, 300, 60, 7) },
+        { who: 'sam', kind: 'run', date: iso(-9), km: 5.0, route: loop(51.4613, -0.1156, 390, 440, 60, 4) },
+        { who: 'sam', kind: 'walk', date: iso(-5), km: 3.6, route: loop(51.4745, -0.1610, 330, 260, 60, 2) },
+        { who: 'alex', kind: 'run', date: iso(0), km: 5.2, route: loop(51.5072, -0.1657, 520, 330, 60, 1) },
+        { who: 'sam', kind: 'run', date: iso(5), km: 5.0, route: loop(51.4613, -0.1156, 380, 450, 60, 3) },
       ] },
       gym: {
         days: DAYS.map(function (name, n) { return { day: name, alex: n === 1 || n === 5, sam: n === 0 || n === 3 || n === 5 }; }),
@@ -260,6 +278,9 @@
           { day: 'Sun', condition: 'rainy', high: 13, low: 9 },
         ],
         challenge: 'Next week: beat 100,000 steps between you',
+        meals: [{ day: 'Mon', meal: 'Chicken katsu curry' }, { day: 'Tue', meal: 'Pierogi' }, { day: 'Wed', meal: 'Chana masala' },
+                { day: 'Thu', meal: 'Beef ragù' }, { day: 'Fri', meal: 'Pizza night' }],
+        max: 'The vacuum cleans downstairs on Wednesday at 10:00',
         events: [{ day: 'Tue', time: '18:30', title: 'Dinner with Jo and Priya' }, { day: 'Thu', title: 'Sam’s birthday' },
                  { day: 'Sat', time: '10:00', title: 'Boiler service' }],
         bins: { day: 'Monday', what: 'Garden' },

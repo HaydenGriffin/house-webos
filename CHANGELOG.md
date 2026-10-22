@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.6.0
+
+- Recap: "Out and about" draws each route on a street map: OpenStreetMap tiles through Home Assistant's map tiles proxy
+  (2026.10 and later), with the token HA hands out for it, darkened to match. They are fetched before the recap starts;
+  a map shows only when all its tiles came, else the line is drawn alone as before. `recap.street_maps: false` turns
+  them off.
+- Recap: `month_routes`, "Where we went": the last four weeks' routes together on one map, in each person's colour,
+  with how many routes and how far each.
+- Recap: one energy card (the twelve weeks, with the week, last week and a year ago in its line) instead of two that
+  could disagree; `heating` gets its own card, the gas a week as bars with how cold it was.
+- Recap: Showers replaces the shower duel: each person's minutes a day as paired bars (`showers.days`), nobody winning.
+- Recap: What we watched shows where the hours went as one split bar, and each day's hours; the week on a plate captions
+  each photo with its day and dish (`food.photos` items may be `{ picture, day, name }`); Next week is a calendar, a
+  column a day; Max's path pictures are shown tall with the robot app's header cropped off.
+- Recap: the next card waits for the last one to go, so two never show at once; its time, count and reveal start when
+  it shows.
+- Recap: new cards from stats producers often already make: The house this week (`house`), In other words
+  (`equivalents`), On a roll (`streaks`) and This week's song (`soundtrack`); Next week's calendar shows the planned
+  dinners (`next_week.meals`), three events a day then "+N more", and the robot's next clean (`next_week.max`).
+- Recap: a record about the priciest or dearest week is bad news even without `tone`, never celebrated; a day without
+  a shower has no bar; the split bar of what we watched keeps the rest of the hours as Other.
+- Home: a player that's playing beats one that's paused; the picture shows once it has loaded. The recap's cue keeps
+  `recap.private` like the button does (it didn't).
+- Home: the header is one row (the room, the chips, the clock) with the date and what's next on one line under it, so
+  neither is cut short; a chip you can't press has no pill; `tv.players` puts what's playing on the TV card.
+
 ## 1.5.0
 
 - Home follows the house's living-room tablet: the room's name and a short line, one notice row (`notices`) with its

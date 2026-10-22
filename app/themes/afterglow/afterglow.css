@@ -53,6 +53,7 @@ html[data-theme="afterglow"] .next .ask { font-weight: 700; color: var(--paper);
 html[data-theme="afterglow"] #clock { font: 820 97px/.86 var(--face); font-stretch: 80%; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 html[data-theme="afterglow"] .glance > #clock { margin-left: 40px; }
 html[data-theme="afterglow"] .glance .chip { min-height: 64px; padding: 0 24px 0 20px; background: var(--field-b); font-size: 28px; font-weight: 700; }
+html[data-theme="afterglow"] .glance p.chip:not(.open) { padding-left: 0; background: transparent; }
 html[data-theme="afterglow"] .chip .disc { width: 34px; height: 34px; padding: 0; background: none; color: inherit; }
 html[data-theme="afterglow"] .chip.open { background: var(--field-warn); color: var(--ink); }
 html[data-theme="afterglow"] .chip.open .disc { color: inherit; }

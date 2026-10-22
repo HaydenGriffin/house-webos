@@ -100,6 +100,7 @@
     TILES.forEach(function (t) { if (t.entity) list.push(t.entity); });
     if (CONFIG.door) list.push(CONFIG.door);
     if (TV && TV.source_sensor) list.push(TV.source_sensor);
+    if (TV && TV.players) list.push.apply(list, TV.players);
     if (MUSIC && MUSIC.player) list.push(MUSIC.player);
     PEOPLE.forEach(function (p) {
       if (p.person) list.push(p.person);
@@ -166,6 +167,23 @@
       states[id] = cur;
     }
     if (ev.r) ev.r.forEach(function (rid) { delete states[rid]; });
+  }
+  /* What the TV's players (tv.players, in order) are playing: the first one playing or paused with a title or an app,
+     as { app, title, picture, paused }, one that's playing first; null when none is. */
+  function nowPlaying() {
+    var list = (TV && TV.players) || [];
+    function first(wanted) {
+      for (var n = 0; n < list.length; n++) {
+        var id = list[n], s = st(id).s, title = attr(id, 'media_title'), app = attr(id, 'app_name');
+        if (wanted.indexOf(s) >= 0 && (title || app)) {
+          var series = attr(id, 'media_series_title');
+          return { app: String(app || ''), title: String(series && title ? series + ' · ' + title : title || app), picture: attr(id, 'entity_picture') || '',
+                   paused: s === 'paused' };
+        }
+      }
+      return null;
+    }
+    return first(['playing']) || first(['paused']); // a paused Shield never hides a PS5 that's playing
   }
   /* "domain.service" with optional data and target, as in a Home Assistant action. */
   function call(service, data, target) {
@@ -327,9 +345,21 @@
     if (TV) {
       var src = TV.source_sensor, source = src ? st(src).s : '';
       // The big line is what's on ('The Bear, S3 E4'); the source sits small beside the card's name.
-      var line = String(attr(src, 'line') || ''), lead = source + ' · ';
-      $('tv-source').textContent = !src ? '' : dead(src) ? 'Unavailable' : source;
-      $('tv-line').textContent = !src || dead(src) ? 'TV status unavailable' : line.indexOf(lead) === 0 ? line.slice(lead.length) : line || source;
+      var line = String(attr(src, 'line') || ''), lead = source + ' · ', on = nowPlaying(), players = (TV.players || []).length;
+      // With players (tv.players), the big line is what they're playing and the sensor's whole line sits small
+      $('tv-source').textContent = !src ? '' : dead(src) ? 'Unavailable' : players ? line || source : source;
+      $('tv-app').hidden = !on || !on.app;
+      $('tv-app').textContent = on ? on.app + (on.paused ? ' · paused' : '') : '';
+      $('tv-line').textContent = on ? on.title : !src || dead(src) ? 'TV status unavailable' : players ? 'Nothing playing'
+        : line.indexOf(lead) === 0 ? line.slice(lead.length) : line || source;
+      var art = on && on.picture ? (/^(https?:|data:)/.test(on.picture) || useDemo ? on.picture : haBase() + on.picture) : '';
+      var img = $('tv-art');
+      if (img.getAttribute('src') !== art) {
+        img.hidden = true; // shown when it loads: a picture that 404s leaves no empty box
+        img.onload = function () { img.hidden = !img.getAttribute('src'); };
+        img.onerror = function () { img.hidden = true; };
+        if (art) img.setAttribute('src', art); else img.removeAttribute('src');
+      }
       all('[data-source]').forEach(function (b) {
         var sel = b.getAttribute('data-source') === source;
         b.classList.toggle('selected', sel); b.setAttribute('aria-pressed', sel ? 'true' : 'false');
@@ -547,11 +577,11 @@
     if (!pic || dead(id)) return '';
     return /^(https?:|data:)/.test(pic) || useDemo ? pic : haBase() + pic;
   }
-  /* Pictures (food photos, book covers), loaded before the recap starts so a card never shows a gap; done(list, urls)
-     gets the paths it tried and, at the same places, the URL of each one that loaded (undefined if it didn't), within
-     5 s. Paths under /api/ need a signed-in user, so auth/sign_path signs each for 10 minutes instead of anything being
-     made public. */
-  function pictures(paths, max, done) {
+  /* Pictures (food photos, book covers, map tiles), loaded before the recap starts so a card never shows a gap;
+     done(list, urls) gets the paths it tried and, at the same places, the URL of each one that loaded (undefined if it
+     didn't), within waitMs (default 5 s). Paths under /api/ need a signed-in user, so auth/sign_path signs each for 10
+     minutes instead of anything being made public; a full URL on Home Assistant carries its own token. */
+  function pictures(paths, max, done, waitMs) {
     var list = (paths || []).filter(function (p, n, given) { return typeof p === 'string' && p && given.indexOf(p) === n; }).slice(0, max);
     var got = [], left = list.length, answered = false;
     function once() { if (!answered) { answered = true; done(list, got); } }
@@ -563,9 +593,10 @@
       img.src = url;
     }
     if (!left) return once();
-    setTimeout(once, 5000);
+    setTimeout(once, waitMs || 5000);
     list.forEach(function (p, n) {
       if (/^(https:\/\/|data:)/.test(p) || useDemo) return load(n, p);
+      if (p.indexOf(haBase() + '/') === 0) return load(n, p);
       if (p.charAt(0) !== '/') return settle();
       if (p.indexOf('/api/') !== 0) return load(n, haBase() + p);
       if (!connected) return settle();
@@ -574,8 +605,16 @@
       });
     });
   }
-  function foodPhotos(paths, done) {
-    pictures(paths, 8, function (list, got) { done(got.filter(Boolean)); });
+  /* The food photos (each a path, or { picture, day?, name? }) that loaded, as { url, day, name }, in their order. */
+  function foodPhotos(items, done) {
+    var info = (items || []).map(function (p) { return typeof p === 'string' ? { picture: p } : p || {}; });
+    var paths = info.map(function (p) { return p.picture; });
+    pictures(paths, 8, function (list, got) {
+      done(list.map(function (path, n) {
+        var p = info[paths.indexOf(path)];
+        return got[n] ? { url: got[n], day: p.day || '', name: p.name || '' } : null;
+      }).filter(Boolean));
+    });
   }
   /* The pictures the recap's cards may show (book covers, new recipes' pictures, the vacuum's maps), as { path: URL } for
      the ones that loaded. */
@@ -591,6 +630,29 @@
       done(map);
     });
   }
+  /* The street maps under the recap's routes: OpenStreetMap tiles through Home Assistant's own map tiles proxy (the one
+     its map card uses, 2026.10 on), with the token HA hands out for it; fetched before the recap starts, as { 'z/x/y':
+     URL }. Nothing (the routes drawn alone) with recap.street_maps false, an older HA, or no tiles needed. In the demo
+     they come from OpenStreetMap itself. */
+  var MAP_TILES_MAX = 80, MAP_TILES_WAIT = 4000; // a month's map and two routes need about 60; past this the maps are left out
+  function mapTiles(s, done) {
+    var keys = RECAP.street_maps === false ? [] : window.HouseRecap.mapTiles(s);
+    if (!keys.length) return done({});
+    function fetchAll(url) {
+      pictures(keys.map(url), MAP_TILES_MAX, function (list, got) {
+        var map = {};
+        keys.forEach(function (k, n) { if (got[n]) map[k] = got[n]; });
+        done(map);
+      }, MAP_TILES_WAIT);
+    }
+    if (useDemo) return fetchAll(function (k) { return 'https://tile.openstreetmap.org/' + k + '.png'; });
+    if (!connected) return done({});
+    send({ type: 'map_tiles/access_token' }, function (m) {
+      var token = m.success && m.result && m.result.token;
+      if (!token) return done({});
+      fetchAll(function (k) { return haBase() + '/api/map_tiles/raster/' + k + '.png?token=' + encodeURIComponent(token); });
+    });
+  }
   /* A producer whose stats don't follow docs/recap-stats.md can be reshaped by window.HOUSE_STATS_ADAPTER, a function
      defined in config.js (push_config.py --adapter). A failing adapter leaves the stats as they came. */
   function adaptStats(stats) {
@@ -603,15 +665,16 @@
     if (recapStarting || !RECAP) return;
     if (recap) { recap.stop(); recap = null; }
     recapStarting = true;
-    var rawStats = attr(RECAP.stats, RECAP.attribute || 'stats'), stats = adaptStats(rawStats), hours = null, photos = [], pics = {}, waiting = 3;
+    var rawStats = attr(RECAP.stats, RECAP.attribute || 'stats'), stats = adaptStats(rawStats), hours = null, photos = [], pics = {}, tiles = {}, waiting = 4;
     tvHours(function (h) { hours = h; ready(); });
     foodPhotos(stats && stats.food && stats.food.photos, function (p) { photos = p; ready(); });
     recapPictures(stats, function (c) { pics = c; ready(); });
+    mapTiles(stats, function (t) { tiles = t; ready(); });
     function ready() {
       if (--waiting) return;
       recapStarting = false;
       var vac = stats && stats.vacuum;
-      var cards = window.HouseRecap.build({ stats: stats, tvHours: hours, foodPhotos: photos, pictures: pics, locale: LOCALE,
+      var cards = window.HouseRecap.build({ stats: stats, tvHours: hours, foodPhotos: photos, pictures: pics, tiles: tiles, locale: LOCALE,
         vacuumMap: useDemo ? DEMO.vacuumMap : cameraPicture((vac && vac.map_entity) || RECAP.vacuum_map), backTo: backTo(), now: useDemo && DEMO.now ? DEMO.now() : null });
       if (!cards.length) {
         if (auto) return close();
@@ -645,6 +708,7 @@
     var cue = st(RECAP.cue), when = attr(RECAP.cue, 'last_triggered');
     if (cue.s !== 'on' || !when || when === cueSeen) return;
     cueSeen = when;
+    if (hiddenFromGuests(RECAP)) return; // recap.private: not while guests are in, not even when the cue starts it
     if (Date.now() - new Date(String(when).replace(/(\.\d{3})\d+/, '$1')).getTime() < 180000) openRecap(true);
   }
 

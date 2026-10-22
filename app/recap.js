@@ -92,7 +92,7 @@
     var top = Math.max.apply(null, nums.concat([1]));
     function bar(v, p, best) {
       var lost = best && best !== p ? ' r-lost' : '';
-      return num(v) ? '<span class="r-pbar ' + p.cls + lost + '" style="height:' + Math.max(8, Math.round(v / top * 230)) + 'px"></span>'
+      return num(v) && v > 0 ? '<span class="r-pbar ' + p.cls + lost + '" style="height:' + Math.max(8, Math.round(v / top * 230)) + 'px"></span>'
         : '<span class="r-pbar r-none"></span>';
     }
     return '<div class="r-pairs">' + rows.map(function (r) {
@@ -251,41 +251,110 @@
              sub: more > 0 ? 'And ' + more + ' more' : '', cls: 'r-widecard r-actcard', ms: 6500 };
   }
 
-  /* A route as an SVG path: longitude scaled by the cosine of the mean latitude (equirectangular, fine for a walk), fitted
-     into w by h inside pad, north up. null without two usable points. */
-  function routePath(points, w, h, pad) {
-    var pts = (points || []).filter(function (q) { return q && num(q[0]) && num(q[1]); });
-    if (pts.length < 2) return null;
-    var lat0 = 0;
-    pts.forEach(function (q) { lat0 += q[0]; });
-    var k = Math.cos(lat0 / pts.length * Math.PI / 180);
-    var xy = pts.map(function (q) { return [q[1] * k, -q[0]]; });
+  /* Routes on a street map: the lines (each [[lat, lon], …]) in Web Mercator, fitted together into w by h inside pad,
+     north up, and the 256 px tiles under them ({z, x, y, left, top, size}, keyed 'z/x/y'). The zoom is the one whose
+     tiles show nearest their own size, never past MAP_MAX_ZOOM for a short walk. null without a line of two usable
+     points that goes anywhere. */
+  var MAP_MAX_ZOOM = 17;
+  function mercX(lon) { return (lon + 180) / 360; }
+  function mercY(lat) { var s = Math.sin(lat * Math.PI / 180); return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI); }
+  function routeMap(lines, w, h, pad) {
+    var ok = (lines || []).map(function (pts) {
+      return (pts || []).filter(function (q) { return q && num(q[0]) && num(q[1]) && Math.abs(q[0]) < 85; })
+        .map(function (q) { return [mercX(q[1]), mercY(q[0])]; });
+    }).filter(function (xy) { return xy.length >= 2; });
+    if (!ok.length) return null;
     var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    xy.forEach(function (q) { minX = Math.min(minX, q[0]); maxX = Math.max(maxX, q[0]); minY = Math.min(minY, q[1]); maxY = Math.max(maxY, q[1]); });
+    ok.forEach(function (xy) { xy.forEach(function (q) { minX = Math.min(minX, q[0]); maxX = Math.max(maxX, q[0]); minY = Math.min(minY, q[1]); maxY = Math.max(maxY, q[1]); }); });
     var spanX = maxX - minX, spanY = maxY - minY;
     if (!(spanX > 0 || spanY > 0)) return null;
-    var scale = Math.min(spanX > 0 ? (w - 2 * pad) / spanX : Infinity, spanY > 0 ? (h - 2 * pad) / spanY : Infinity);
-    var offX = (w - spanX * scale) / 2, offY = (h - spanY * scale) / 2;
-    var out = xy.map(function (q) { return [Math.round(((q[0] - minX) * scale + offX) * 10) / 10, Math.round(((q[1] - minY) * scale + offY) * 10) / 10]; });
-    return { d: 'M' + out.map(function (q) { return q[0] + ',' + q[1]; }).join('L'), start: out[0], end: out[out.length - 1] };
+    var fit = Math.min(spanX > 0 ? (w - 2 * pad) / spanX : Infinity, spanY > 0 ? (h - 2 * pad) / spanY : Infinity);
+    var scale = Math.min(fit, 256 * Math.pow(2, MAP_MAX_ZOOM) * 1.4);
+    var z = Math.max(0, Math.min(MAP_MAX_ZOOM, Math.round(Math.log(scale / 256) / Math.LN2)));
+    var left = (minX + maxX) / 2 - w / 2 / scale, top = (minY + maxY) / 2 - h / 2 / scale;
+    function r(v) { return Math.round(v * 10) / 10; }
+    function at(q) { return [r((q[0] - left) * scale), r((q[1] - top) * scale)]; }
+    var out = ok.map(function (xy) {
+      var pts = xy.map(at);
+      return { d: 'M' + pts.map(function (q) { return q[0] + ',' + q[1]; }).join('L'), start: pts[0], end: pts[pts.length - 1] };
+    });
+    var n = Math.pow(2, z), size = r(scale / n + 0.4), tiles = [];
+    for (var ty = Math.max(0, Math.floor(top * n)); ty < Math.min(n, (top + h / scale) * n); ty++) {
+      for (var tx = Math.floor(left * n); tx < (left + w / scale) * n; tx++) {
+        var p = at([tx / n, ty / n]), x = ((tx % n) + n) % n;
+        tiles.push({ key: z + '/' + x + '/' + ty, left: p[0], top: p[1], size: size });
+      }
+    }
+    return { lines: out, tiles: tiles };
   }
-  /* Out and about: up to two of the week's routes drawn on their own, the longest first, no map under them. */
-  var ROUTE_W = 760, ROUTE_H = 520;
-  function routes(a) {
-    var withRoute = activityItems(a).filter(function (x) { return routePath(x.route, ROUTE_W, ROUTE_H, 40); });
-    if (!withRoute.length) return null;
+  /* The tiles under a map as positioned pictures (percentages of w by h), only when every one of them loaded: half a
+     map is worse than none. */
+  function tilesHtml(m, w, h, tiles) {
+    if (!tiles || !m.tiles.length || !m.tiles.every(function (t) { return tiles[t.key]; })) return '';
+    function pc(v, of) { return Math.round(v / of * 10000) / 100 + '%'; }
+    return '<div class="r-map-tiles">' + m.tiles.map(function (t) {
+      return '<img alt="" src="' + esc(tiles[t.key]) + '" style="left:' + pc(t.left, w) + ';top:' + pc(t.top, h) + ';width:' + pc(t.size, w) + ';height:' + pc(t.size, h) + '">';
+    }).join('') + '</div>';
+  }
+  function mapCredit(html) { return html ? '<span class="r-map-credit">© OpenStreetMap contributors</span>' : ''; }
+
+  /* Out and about: up to two of the week's routes, the longest first, each on its own street map when the tiles came. */
+  var ROUTE_W = 760, ROUTE_H = 520, ROUTE_PAD = 40;
+  function routesShown(a) {
+    var withRoute = activityItems(a).filter(function (x) { return routeMap([x.route], ROUTE_W, ROUTE_H, ROUTE_PAD); });
     withRoute.sort(function (x, y) { return (num(y.km) ? y.km : 0) - (num(x.km) ? x.km : 0); });
-    var html = '<div class="r-routes">' + withRoute.slice(0, 2).map(function (x, n) {
-      var p = person(x.who), r = routePath(x.route, ROUTE_W, ROUTE_H, 40), bits = [x.day];
+    return withRoute.slice(0, 2);
+  }
+  function routes(a, tiles) {
+    var shown = routesShown(a);
+    if (!shown.length) return null;
+    var html = '<div class="r-routes">' + shown.map(function (x, n) {
+      var p = person(x.who), m = routeMap([x.route], ROUTE_W, ROUTE_H, ROUTE_PAD), l = m.lines[0], bits = [x.day], under = tilesHtml(m, ROUTE_W, ROUTE_H, tiles);
       if (num(x.km) && x.km > 0) bits.push(km(x.km));
       if (num(x.minutes) && x.minutes > 0) bits.push(minutes(x.minutes));
-      return '<div class="r-route r-step"' + delay(0.3 + n * 0.25) + '><svg class="r-route-map ' + p.cls + '" viewBox="0 0 ' + ROUTE_W + ' ' + ROUTE_H + '" aria-hidden="true">' +
-        '<path d="' + r.d + '"/><circle class="r-route-start" cx="' + r.start[0] + '" cy="' + r.start[1] + '" r="14"/>' +
-        '<circle class="r-route-end" cx="' + r.end[0] + '" cy="' + r.end[1] + '" r="14"/></svg>' +
+      return '<div class="r-route r-step"' + delay(0.3 + n * 0.25) + '><div class="r-route-map' + (under ? ' r-on-map' : '') + '">' + under +
+        '<svg class="' + p.cls + '" viewBox="0 0 ' + ROUTE_W + ' ' + ROUTE_H + '" aria-hidden="true">' +
+        '<path class="r-route-halo" d="' + l.d + '"/><path d="' + l.d + '"/><circle class="r-route-start" cx="' + l.start[0] + '" cy="' + l.start[1] + '" r="14"/>' +
+        '<circle class="r-route-end" cx="' + l.end[0] + '" cy="' + l.end[1] + '" r="14"/></svg>' + mapCredit(under) + '</div>' +
         '<p class="r-route-name"><span class="' + p.cls + '">' + esc(p.name) + '</span> · ' + esc(str(x.name) || capital(x.kind)) + '</p>' +
         '<p class="r-route-what">' + esc(bits.join(' · ')) + '</p></div>';
     }).join('') + '</div>';
     return { icon: 'mapMarkerPath', label: 'Out and about', html: html, htmlSteps: true, cls: 'r-widecard r-routecard', ms: 6000 };
+  }
+
+  /* Where we went: the last four weeks' routes (month_routes) together on one map, in each person's colour, with how
+     many and how far each. */
+  var MONTH_W = 1720, MONTH_H = 540, MONTH_PAD = 48;
+  function monthItems(m) {
+    return ((m && m.items) || []).filter(function (x) { return x && person(x.who) && routeMap([x.route], 10, 10, 0); });
+  }
+  function monthRoutes(m, tiles) {
+    var items = monthItems(m);
+    if (items.length < 3) return null;
+    var map = routeMap(items.map(function (x) { return x.route; }), MONTH_W, MONTH_H, MONTH_PAD);
+    var under = tilesHtml(map, MONTH_W, MONTH_H, tiles);
+    var paths = items.map(function (x, n) { return '<path class="' + person(x.who).cls + '" d="' + map.lines[n].d + '"/>'; }).join('');
+    var legend = P.map(function (p) {
+      var mine = items.filter(function (x) { return person(x.who) === p; });
+      if (!mine.length) return '';
+      var dist = mine.reduce(function (t, x) { return t + (num(x.km) && x.km > 0 ? x.km : 0); }, 0);
+      return '<span><b class="' + p.cls + '">' + esc(p.name) + '</b> ' + esc(mine.length + ' ' + plural(mine.length, 'route', 'routes') + (dist > 0 ? ' · ' + km(dist) : '')) + '</span>';
+    }).join('');
+    var html = '<div class="r-month r-step"' + delay(0.3) + '><div class="r-month-map' + (under ? ' r-on-map' : '') + '">' + under +
+      '<svg viewBox="0 0 ' + MONTH_W + ' ' + MONTH_H + '" aria-hidden="true">' + paths + '</svg>' + mapCredit(under) + '</div>' +
+      '<p class="r-month-legend">' + legend + '</p></div>';
+    return { icon: 'mapMarkerPath', label: 'Where we went', html: html, htmlSteps: true, sub: 'The last four weeks', cls: 'r-widecard r-monthcard', ms: 6500 };
+  }
+
+  /* Every tile the map cards would draw, as 'z/x/y', so the app can fetch them before the recap starts. */
+  function mapTiles(stats) {
+    var s = stats || {}, keys = [];
+    function add(m) { if (m) m.tiles.forEach(function (t) { if (keys.indexOf(t.key) < 0) keys.push(t.key); }); }
+    setPeople(s.people);
+    routesShown(s.activities).forEach(function (x) { add(routeMap([x.route], ROUTE_W, ROUTE_H, ROUTE_PAD)); });
+    var items = monthItems(s.month_routes);
+    if (items.length >= 3) add(routeMap(items.map(function (x) { return x.route; }), MONTH_W, MONTH_H, MONTH_PAD));
+    return keys;
   }
 
   /* Restless nights: only the notable one, the most restless night or a week nobody got up. */
@@ -299,35 +368,23 @@
     return null;
   }
 
-  /* Who used more shower water over the week, when the gap is worth saying (10 L and 15% of the larger). The litres are
-     week totals under per-shower averages, so unequal counts are named instead of the extra energy to heat it. */
-  function waterLine(h, e) {
-    if (!num(h.litres) || !num(e.litres)) return '';
-    var more = h.litres >= e.litres ? 0 : 1, a = more ? e : h, b = more ? h : e, gap = Math.round(a.litres - b.litres);
-    if (gap < 10 || gap / a.litres < 0.15) return '';
-    if (a.count !== b.count) {
-      return P[more].name + '’s ' + a.count + ' ' + plural(a.count, 'shower', 'showers') + ' used ' + gap + ' more litres than ' +
-        P[1 - more].name + '’s ' + b.count + ' this week';
-    }
-    var line = P[more].name + '’s showers used ' + gap + ' more litres this week';
-    var kwh = num(a.kwh) && num(b.kwh) ? Math.round((a.kwh - b.kwh) * 10) / 10 : 0;
-    if (kwh >= 0.5) line += ', ' + kwh + ' kWh more to heat';
-    return line;
-  }
 
-  /* The shower duel: each average shower, and one line: who used more water, else the hotter one, else the quickest. */
-  function showerDuel(sh) {
+
+  /* Showers: each person's minutes a day as paired bars (`days`), their showers and usual length either side, and the
+     house's week in one line: how many, how long, and the water when both have it. Not a contest: nobody wins a day. */
+  function showersCard(sh) {
     if (!duo() || !sh) return null;
     var v = of2(sh), h = v[0], e = v[1];
     if (!h || !e || !num(h.avg_min) || !num(e.avg_min) || !h.count || !e.count) return null;
-    var line = waterLine(h, e), q = sh.quickest;
-    if (!line && num(h.avg_temp) && num(e.avg_temp) && Math.abs(h.avg_temp - e.avg_temp) >= 0.5) {
-      line = (h.avg_temp > e.avg_temp ? P[0] : P[1]).name + '’s showers run ' + half(Math.abs(h.avg_temp - e.avg_temp)) + '° hotter';
-    } else if (!line && q && who(q.who) && num(q.minutes) && str(q.day)) {
-      line = 'Quickest: ' + nameOf(q.who) + ', ' + q.minutes + ' ' + plural(q.minutes, 'minute', 'minutes') + ' on ' + q.day;
-    }
-    var html = '<div class="r-versus">' + sideHtml(P[0], h.avg_min + ' min') + '<p class="r-vs">vs</p>' + sideHtml(P[1], e.avg_min + ' min') + '</div>';
-    return { icon: 'showerHead', label: 'The shower duel', html: html, line: line, cls: 'r-widecard', ms: 4500 };
+    var days = (sh.days || []).filter(function (d) { return d && str(d.day); }).slice(0, 7);
+    function side(x) { return x.count + ' ' + plural(x.count, 'shower', 'showers'); }
+    var count = num(sh.total) ? sh.total : h.count + e.count, mins = num(sh.total_min) ? sh.total_min : h.count * h.avg_min + e.count * e.avg_min;
+    var line = count + ' ' + plural(count, 'shower', 'showers') + ', ' + minutes(mins) + ' in all';
+    if (num(h.litres) && num(e.litres)) line += ' · ' + thousands(Math.round(h.litres + e.litres)) + ' litres';
+    var html = days.length ? versus(side(h), side(e), days, '') : '<div class="r-versus">' + sideHtml(P[0], side(h)) + '<div class="r-pairs"></div>' + sideHtml(P[1], side(e)) + '</div>';
+    var usual = 'usually ' + P[0].name + ' ' + h.avg_min + ' min, ' + P[1].name + ' ' + e.avg_min;
+    return { icon: 'showerHead', label: 'Showers', html: html, line: line, sub: (days.length ? 'Minutes a day · ' : '') + capital(usual),
+             cls: 'r-widecard r-showercard', ms: 5000 };
   }
 
   /* Eight weeks of faint bars, this week lit; gaps where a week has no figure. */
@@ -341,6 +398,24 @@
     }).join('') + '</div>';
   }
 
+  /* Energy, one card: with twelve weeks to draw, the chart with the week's cost, the change on last week and on last year
+     in its line; without them, the week's cost with its spark and its change. */
+  function energy(e, trends) {
+    var chart = energySeries(e), plain = energyStats(e, trends);
+    if (!chart) return plain;
+    if (!plain) return chart;
+    var parts = [money(e.week_cost, 2) + ' this week'], pct = e.vs_last_week_pct, ly = e.last_year_cost, sr = e.series;
+    if (!num(pct) && sr && sr.elec && sr.elec.length >= 2) {
+      var k = sr.elec.length - 1, t1 = (sr.elec[k] || 0) + ((sr.gas || [])[k] || 0), t0 = (sr.elec[k - 1] || 0) + ((sr.gas || [])[k - 1] || 0);
+      if (t0 > 0 && t1 > 0) pct = (t1 / t0 - 1) * 100;
+    }
+    if (num(pct) && Math.round(pct)) parts.push(Math.abs(Math.round(pct)) + '% ' + (pct > 0 ? 'more' : 'less') + ' than last week');
+    if (num(ly) && ly > 0 && Math.abs(e.week_cost - ly) >= 1) parts.push(money(Math.abs(e.week_cost - ly), 0) + (e.week_cost > ly ? ' more' : ' less') + ' than a year ago');
+    chart.label = 'Energy';
+    chart.icon = 'lightningBolt';
+    chart.line = parts.join(' · ');
+    return chart;
+  }
   /* Energy: the week's cost, up or down on last week, and last year only when it differs by 15% or more. */
   function energyStats(e, trends) {
     if (!e || !num(e.week_cost)) return null;
@@ -401,6 +476,30 @@
              cls: 'r-widecard r-echartcard', ms: 6000 };
   }
 
+  /* Heating and hot water: the gas for the weeks (`weeks`) as bars, this week lit, each with how cold it was outside, and
+     the line on last week; without weeks, the one number. */
+  function heating(h) {
+    if (!h || !num(h.gas_gbp)) return null;
+    var line = str(h.line) || (h.highlight && str(h.highlight.line)) || '';
+    var weeks = (h.weeks || []).filter(function (w) { return w && str(w.label); }).slice(-8);
+    var got = weeks.filter(function (w) { return num(w.gbp); });
+    if (got.length < 3) {
+      return { icon: 'radiator', label: 'Heating and hot water', value: h.gas_gbp, format: money, unit: 'on gas this week', line: line, ms: 4500 };
+    }
+    var top = Math.max.apply(null, got.map(function (w) { return w.gbp; })), last = weeks.length - 1;
+    if (!(top > 0)) return { icon: 'radiator', label: 'Heating and hot water', value: h.gas_gbp, format: money, unit: 'on gas this week', line: line, ms: 4500 };
+    var cols = weeks.map(function (w, n) {
+      var hgt = num(w.gbp) ? Math.max(8, Math.round(w.gbp / top * 300)) : 0;
+      return '<div class="r-hcol' + (n === last ? ' r-now' : '') + '"><p class="r-hval">' + (num(w.gbp) ? money(w.gbp, 0) : '') + '</p>' +
+        '<div class="r-hbar"><span' + (hgt ? ' style="height:' + hgt + 'px"' : ' class="r-none"') + '></span></div>' +
+        '<p class="r-htemp">' + (num(w.temp) ? Math.round(w.temp) + '°' : '') + '</p><p class="r-pair-day">' + esc(w.label) + '</p></div>';
+    }).join('');
+    var html = '<div class="r-heat r-step">' + cols + '</div>';
+    return { icon: 'radiator', label: 'Heating and hot water', html: html, htmlSteps: true,
+             line: money(h.gas_gbp, 2) + ' on gas this week' + (line ? ' · ' + line : ''), sub: 'Gas a week, and how cold it was outside',
+             cls: 'r-widecard r-heatcard', ms: 6000 };
+  }
+
   /* The quiz: up to three tiles, the right one lights up after a pause, then the answer's line. The answer must be one
      of the tiles shown. */
   function quiz(q) {
@@ -433,15 +532,26 @@
     var dayTop = Math.max.apply(null, dayNums.map(function (d) { return d.hours; }).concat([0.1]));
     var strip = dayNums.length >= 3 ? '<div class="r-tvdays">' + days.map(function (d) {
       var v = num(d.hours) ? d.hours : 0;
-      return '<div class="r-tvday"><span style="height:' + Math.max(6, Math.round(v / dayTop * 120)) + 'px"></span><p>' + esc(d.day) + '</p></div>';
+      return '<div class="r-tvday"><b>' + (v >= 0.5 ? half(v) : '') + '</b><span style="height:' + Math.max(6, Math.round(v / dayTop * 150)) + 'px"></span><p>' + esc(d.day) + '</p></div>';
     }).join('') + '</div>' : '';
     var side = '<div class="r-watch-side"><p class="r-big r-step"><span class="r-n">' + Math.round(hours) + '</span><span class="r-unit">' +
       plural(Math.round(hours), 'hour', 'hours') + '</span></p>' + (strip ? '<div class="r-step">' + strip + '</div>' : '') + '</div>';
-    var via = named(w.inputs, 'name').length >= 2 ? named(w.inputs, 'name') : named(w.apps, 'name');
-    var line = via.length ? via.slice(0, 4).map(function (x) { return x.name + ' ' + hoursText(x.hours); }).join(' · ')
-      : w.binge && str(w.binge.day) && num(w.binge.hours) ? 'Biggest night ' + w.binge.day + ', ' + half(w.binge.hours) + ' hours' : '';
-    return { icon: 'television', label: 'What we watched', html: '<div class="r-watch">' + side + shows + '</div>', htmlSteps: true,
-             line: line, cls: 'r-widecard r-watchcard', ms: 6500 };
+    var apps = named(w.apps, 'name'), via = (apps.length >= 2 ? apps : named(w.inputs, 'name')).slice(0, 4);
+    var listed = via.reduce(function (t, x) { return t + x.hours; }, 0);
+    if (via.length >= 2 && hours - listed >= 1) via.push({ name: 'Other', hours: hours - listed }); // the bar is the card's hours
+    var split = via.length >= 2 ? viaBar(via) : '';
+    var line = split ? '' : w.binge && str(w.binge.day) && num(w.binge.hours) ? 'Biggest night ' + w.binge.day + ', ' + half(w.binge.hours) + ' hours' : '';
+    return { icon: 'television', label: 'What we watched', html: '<div class="r-watch">' + side + shows + '</div>' + split, htmlSteps: true,
+             line: line, cls: 'r-widecard r-watchcard', ms: 7000 };
+  }
+  /* Where the hours went (the apps, else the inputs): one bar split between them, each named with its hours. */
+  function viaBar(list) {
+    var all = list.reduce(function (t, x) { return t + x.hours; }, 0);
+    return '<div class="r-via r-step"><p class="r-via-bar">' + list.map(function (x, n) {
+      return '<i class="r-via-' + n + '" style="width:' + (x.hours / all * 100).toFixed(2) + '%"></i>';
+    }).join('') + '</p><p class="r-via-key">' + list.map(function (x, n) {
+      return '<span><i class="r-via-' + n + '"></i>' + esc(x.name) + ' <b>' + hoursText(x.hours) + '</b></span>';
+    }).join('') + '</p></div>';
   }
   /* What we watched: TV hours and the title most of them went on. */
   function watched(w, tvHours) {
@@ -479,7 +589,8 @@
 
   /* The week on a plate: the week's food pictures dropping in like snaps on a table, and at most one line, the one the
      stats picked as most notable: new recipes, the dish on the most days, or the food diary's leaf days. Names and counts
-     of days only, never calories: the TV is a shared screen. photos: the pictures that loaded (app.js). */
+     of days only, never calories: the TV is a shared screen. photos: the pictures that loaded (app.js), each a URL or
+     { url, day?, name? }, captioned with the day and what it was. */
   var TILTS = [-3, 2.5, -1.5, 3, -2.5, 1.5, -3.5, 2];
   function plateLine(f) {
     var fresh = (f.new || []).filter(str), top = f.top;
@@ -492,12 +603,15 @@
     return '';
   }
   function plates(f, photos) {
-    var pics = (photos || []).filter(str).slice(0, 8);
+    var pics = (photos || []).map(function (p) { return typeof p === 'string' ? { url: p } : p; })
+      .filter(function (p) { return p && str(p.url); }).slice(0, 8);
     if (!f || pics.length < 3) return null;
     var rows = pics.length > 4 ? 2 : 1, cols = Math.ceil(pics.length / rows);
     var grid = '<div class="r-plates r-plates-' + rows + '">' + pics.map(function (p, n) {
+      var caption = [str(p.day), str(p.name)].filter(Boolean).join(' · ');
       return '<div class="r-plate" style="width:calc(' + (100 / cols).toFixed(3) + '% - 28px);--tilt:' + TILTS[n % TILTS.length] + 'deg;' +
-        'transition-delay:' + (0.3 + n * 0.14).toFixed(2) + 's"><span><img src="' + esc(p) + '" alt=""></span></div>';
+        'transition-delay:' + (0.3 + n * 0.14).toFixed(2) + 's"><span><img src="' + esc(p.url) + '" alt="">' +
+        (caption ? '<b class="r-plate-name">' + esc(caption) + '</b>' : '') + '</span></div>';
     }).join('') + '</div>';
     return { icon: 'silverwareForkKnife', label: 'The week on a plate', html: grid, htmlSteps: true, line: plateLine(f),
              cls: 'r-widecard r-platecard', ms: 6000 };
@@ -613,7 +727,9 @@
     }
     return '<div class="r-burst" aria-hidden="true">' + html + '</div>';
   }
-  function bad(x) { return x && x.tone === 'bad'; }
+  /* Bad news: tone "bad", or, from a producer that doesn't say, a record about the most money spent. Never celebrated. */
+  var BAD_WORDS = /\b(priciest|dearest|most expensive|highest bill)\b/i;
+  function bad(x) { return !!x && (x.tone === 'bad' || (!x.tone && BAD_WORDS.test(str(x.text) || ''))); }
   function record(list) {
     var r = (list || []).filter(function (x) { return x && str(x.text) && !bad(x); })[0];
     if (!r) return null;
@@ -693,28 +809,85 @@
                   'lightning-rainy': 'weatherLightningRainy', 'exceptional': 'alert' };
   /* What's on: the calendar's events, then the bins, a row each with the day and the time. */
   function whatsOn(n) {
-    var rows = (n.events || []).filter(function (e) { return e && str(e.day) && str(e.title); }).slice(0, 5).map(function (e) {
-      return { icon: 'calendarClock', day: e.day, time: str(e.time), title: e.title };
+    var rows = (n.events || []).filter(function (e) { return e && str(e.day) && str(e.title); }).slice(0, 12).map(function (e) {
+      return { icon: 'calendarClock', day: e.day, time: str(e.time), title: e.title, date: str(e.date) };
     });
-    if (n.bins && str(n.bins.day) && rows.length < 5) rows.push({ icon: 'trashCanOutline', day: n.bins.day.slice(0, 3), time: '', title: (str(n.bins.what) || 'Bins') + ' bin' });
+    if (n.bins && str(n.bins.day)) rows.push({ icon: 'trashCanOutline', day: n.bins.day.slice(0, 3), time: '', title: (str(n.bins.what) || 'Bins') + ' bin' });
     var order = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     function at(e) { var k = order.indexOf(e.day.slice(0, 3)); return (k < 0 ? 7 : k) * 10000 + (e.time ? parseInt(e.time.replace(':', ''), 10) : 0); }
     return rows.map(function (e, k) { e.k = k; return e; }).sort(function (a, b) { return at(a) - at(b) || a.k - b.k; });
   }
+  /* Next week as a calendar: a column a day (from the forecast's first day, seven of them), its weather at the top and
+     what's on under it, the bins included. */
+  var WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  var CAL_EVENTS = 3; // a day shows this many, then "+N more"
   function nextWeek(n) {
     if (!n) return null;
-    var days = (n.forecast || []).filter(function (d) { return d && d.day && num(d.high); }).slice(0, 7), on = whatsOn(n);
-    if (!days.length && !str(n.challenge) && !(n.events || []).some(function (e) { return e && str(e.title); })) return null;
-    var strip = days.length ? '<div class="r-forecast">' + days.map(function (d, k) {
-      return '<div class="r-day r-step"' + delay(0.3 + k * 0.1) + '><p class="r-day-name">' + esc(d.day) + '</p><span class="r-day-icon">' + svg(WEATHER[d.condition] || 'weatherCloudy') + '</span>' +
-        '<p class="r-day-temp">' + Math.round(d.high) + '°' + (num(d.low) ? '<span>' + Math.round(d.low) + '°</span>' : '') + '</p></div>';
-    }).join('') + '</div>' : '';
-    var events = on.length ? '<div class="r-events">' + on.map(function (e, k) {
-      return '<p class="r-event r-step"' + delay(0.6 + k * 0.1) + '><span class="r-event-icon">' + svg(e.icon) + '</span><span class="r-event-day">' + esc(e.day) +
-        '</span><span class="r-event-time">' + esc(e.time) + '</span><span class="r-event-title">' + esc(e.title) + '</span></p>';
-    }).join('') + '</div>' : '';
-    return { icon: 'calendarArrowRight', label: 'Next week', html: strip + events, htmlSteps: true, line: str(n.challenge),
-             cls: 'r-widecard r-nextcard' + (events ? ' r-nextevents' : ''), ms: on.length ? 6500 : 4500 };
+    var fc = (n.forecast || []).filter(function (d) { return d && str(d.day) && num(d.high); }).slice(0, 7), on = whatsOn(n);
+    var meals = (n.meals || []).filter(function (m) { return m && str(m.day) && str(m.meal); });
+    if (!fc.length && !on.length && !meals.length) {
+      if (!str(n.challenge)) return null;
+      return { icon: 'calendarArrowRight', label: 'Next week', body: labelHtml('calendarArrowRight', 'Next week') + '<h2 class="r-hero-text r-step">' +
+               esc(n.challenge) + '</h2>' + (str(n.max) ? '<p class="r-line r-step">' + esc(n.max) + '</p>' : ''), ms: 4500 };
+    }
+    // the week runs from the forecast's first day, else from the first thing on
+    var first = fc.length ? fc[0].day : on.length ? on[0].day : meals.length ? meals[0].day : 'Mon';
+    var start = Math.max(0, WEEKDAYS.indexOf(first.slice(0, 3))), cols = [];
+    for (var k = 0; k < 7; k++) {
+      var name = WEEKDAYS[(start + k) % 7];
+      var wx = fc.filter(function (d) { return d.day.slice(0, 3) === name; })[0];
+      var mine = on.filter(function (e) { return e.day.slice(0, 3) === name; });
+      var dinner = meals.filter(function (m) { return m.day.slice(0, 3) === name; })[0];
+      var shown = mine.slice(0, CAL_EVENTS).map(function (e) {
+        return '<p class="r-calev"><span class="r-event-icon">' + svg(e.icon) + '</span>' + (e.time ? '<b>' + esc(e.time) + '</b> ' : '') + esc(e.title) + '</p>';
+      }).join('') + (mine.length > CAL_EVENTS ? '<p class="r-calmore">+' + (mine.length - CAL_EVENTS) + ' more</p>' : '');
+      cols.push('<div class="r-calday r-step' + (mine.length ? ' r-busy' : '') + '"' + delay(0.3 + k * 0.08) + '><p class="r-day-name">' + name + '</p>' +
+        (wx ? '<p class="r-calwx"><span class="r-day-icon">' + svg(WEATHER[wx.condition] || 'weatherCloudy') + '</span>' + Math.round(wx.high) + '°' +
+          (num(wx.low) ? '<span class="r-low">' + Math.round(wx.low) + '°</span>' : '') + '</p>' : '<p class="r-calwx"></p>') +
+        shown + (dinner ? '<p class="r-caldinner"><span class="r-event-icon">' + svg('silverwareForkKnife') + '</span>' + esc(dinner.meal) + '</p>' : '') + '</div>');
+    }
+    return { icon: 'calendarArrowRight', label: 'Next week', html: '<div class="r-cal">' + cols.join('') + '</div>', htmlSteps: true,
+             line: str(n.challenge), sub: str(n.max), cls: 'r-widecard r-nextcard', ms: on.length || meals.length ? 7000 : 5000 };
+  }
+
+  /* A few short lines under a label, each with its icon: what the house noticed, the week in other words, streaks. */
+  function listCard(icon, label, rows, cls) {
+    var html = '<div class="r-list">' + rows.map(function (r, k) {
+      return '<p class="r-listrow r-step"' + delay(0.35 + k * 0.2) + '><span class="r-event-icon">' + svg(iconFor(r.icon)) + '</span><span>' + esc(r.text) + '</span></p>';
+    }).join('') + '</div>';
+    return { icon: icon, label: label, html: html, htmlSteps: true, cls: 'r-widecard r-listcard' + (cls ? ' ' + cls : ''), ms: 3200 + rows.length * 1300 };
+  }
+  /* The house this week: the busiest room, the quietest day, the front door. Two of them at least. */
+  function houseCard(h) {
+    if (!h) return null;
+    var rows = [], b = h.busiest_room, d = h.door;
+    if (b && str(b.name) && num(b.share)) rows.push({ icon: 'home', text: 'The ' + b.name.toLowerCase() + ' saw ' + b.share + '% of the comings and goings' });
+    if (str(h.quietest_day)) rows.push({ icon: 'sofaOutline', text: h.quietest_day + ' was the quietest day' });
+    if (d && num(d.openings) && d.openings > 0) {
+      rows.push({ icon: 'doorOpen', text: 'The front door opened ' + d.openings + ' ' + plural(d.openings, 'time', 'times') + (str(d.peak_hour) ? ', most around ' + d.peak_hour : '') });
+    }
+    return rows.length >= 2 ? listCard('home', 'The house this week', rows) : null;
+  }
+  /* The week in other words (equivalents) and the streaks on the go: a producer's ready-made lines, up to four and three. */
+  function textRows(list, most) {
+    return (list || []).filter(function (x) { return x && str(x.text); }).slice(0, most);
+  }
+  function otherWords(list) {
+    var rows = textRows(list, 4);
+    return rows.length >= 2 ? listCard('scaleBalance', 'In other words', rows) : null;
+  }
+  function onARoll(list) {
+    var rows = textRows(list, 3);
+    return rows.length ? listCard('fire', 'On a roll', rows) : null;
+  }
+  /* This week's song: the most played track (the one the recap plays), or an old favourite in a quiet week. */
+  function song(t) {
+    if (!t || !str(t.title)) return null;
+    var why = t.source === 'favourite' ? 'An old favourite: nothing got much play this week'
+      : num(t.minutes) && t.minutes > 0 ? 'Played for ' + minutes(t.minutes) + ' this week' : '';
+    var body = labelHtml('musicNote', 'This week’s song') + '<h2 class="r-hero-text r-step">' + esc(t.title) + '</h2>' +
+      (str(t.artist) ? '<p class="r-line r-step">' + esc(t.artist) + '</p>' : '') + (why ? '<p class="r-sub r-step">' + esc(why) + '</p>' : '');
+    return { icon: 'musicNote', label: 'This week’s song', body: body, cls: 'r-songcard', ms: 5000 };
   }
 
   /* The finale: each category's winner one by one, a drumroll, then the name. */
@@ -736,19 +909,25 @@
              ms: Math.max(7500, revealAt + 3000) };
   }
 
+  /* A producer's highlight that repeats a card the stats already make (older stats sent heating as one) is left out. */
+  function highlightsBut(list, cards) {
+    var labels = cards.filter(Boolean).map(function (c) { return c.label; });
+    return list.filter(function (h) { return labels.indexOf(h.label) < 0; });
+  }
   function statsBody(data, s) {
     var pics = data.pictures || data.bookCovers || {};
-    return [
+    var body = [
       stepsDuel(s.duel, s.belt),
       goalsDuel(s.goals),
       gymCard(s.gym),
       activities(s.activities),
-      routes(s.activities),
+      routes(s.activities, data.tiles),
+      monthRoutes(s.month_routes, data.tiles),
       sleepDuel(s.sleep),
       restless(s.restless),
-      showerDuel(s.showers),
-      energyStats(s.energy, s.trends),
-      energySeries(s.energy),
+      showersCard(s.showers),
+      energy(s.energy, s.trends),
+      heating(s.heating),
       badRecord(s.records),
       quiz(s.quiz),
       watched(s.watched, data.tvHours),
@@ -758,9 +937,14 @@
       vacuumCard(s.vacuum, data.vacuumMap, pics),
       record(s.records),
       houseSays(s.house_says),
+      houseCard(s.house),
+      otherWords(s.equivalents),
+      onARoll(s.streaks),
       inNumbers(s.month_recap, false),
       nextWeek(s.next_week),
-    ]).concat(highlights(s.highlights), [guess(s.guess), winner(s.winner)]);
+      song(s.soundtrack),
+    ]);
+    return body.concat(highlightsBut(highlights(s.highlights), body), [guess(s.guess), winner(s.winner)]);
   }
 
   /* data: { stats (ignored when over 8 days old), tvHours, vacuumMap and foodPhotos (absolute URLs that loaded), pictures
@@ -779,6 +963,8 @@
   }
 
   /* ---------- the player ---------- */
+
+  var CARD_GAP_MS = 380; // the last card's fade (style.css .r-card) and a beat
 
   function reduced() { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
 
@@ -880,14 +1066,23 @@
       card.className = 'r-card' + (cards[n].kind === 'intro' ? ' r-intro' : '') + (cards[n].cls ? ' ' + cards[n].cls : '');
       card.innerHTML = cardHtml(cards[n]);
       stage.appendChild(card);
-      void card.offsetWidth;
-      card.classList.add('r-in');
-      var numEl = card.querySelector('.r-n');
-      if (numEl) countUp(numEl, cards[n]);
-      left = ms(cards[n]);
-      revealed = !cards[n].revealAt;
-      revealLeft = cards[n].revealAt || 0;
-      arm(); setBars(); setHint();
+      // the next card waits until the last has gone, so two never show at once (the C1 fades slowly); its time, count
+      // and reveal start when it shows
+      function start() {
+        if (stopped || i !== n || !card.parentNode) return;
+        card.classList.remove('r-wait');
+        void card.offsetWidth;
+        card.classList.add('r-in');
+        var numEl = card.querySelector('.r-n');
+        if (numEl) countUp(numEl, cards[n]);
+        left = ms(cards[n]);
+        revealed = !cards[n].revealAt;
+        revealLeft = cards[n].revealAt || 0;
+        arm();
+        setBars(); setHint();
+      }
+      clearTimeout(timer); clearTimeout(revealTimer);
+      if (old) { card.classList.add('r-wait'); setTimeout(start, CARD_GAP_MS); } else start();
     }
     function setPaused(on) {
       if (stopped || on === paused) return;
@@ -935,5 +1130,5 @@
     };
   }
 
-  window.HouseRecap = { build: build, play: play, routePath: routePath };
+  window.HouseRecap = { build: build, play: play, routeMap: routeMap, mapTiles: mapTiles };
 })();
