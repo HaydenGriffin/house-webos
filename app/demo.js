@@ -199,7 +199,11 @@
         nights: rows([492, 530, 601, 455, 512, 548, 467], [470, 455, 498, 470, 501, 489, 520]),
         bed_race: { who: 'sam', nights: 5, of: 7 },
       },
-      showers: { alex: { count: 6, avg_min: 9, avg_temp: 41.2, litres: 280, kwh: 8.4 }, sam: { count: 7, avg_min: 14, avg_temp: 43.0, litres: 470, kwh: 14.6 } },
+      showers: { alex: { count: 6, avg_min: 9, avg_temp: 41.2, litres: 280, kwh: 8.4 }, sam: { count: 7, avg_min: 14, avg_temp: 43.0, litres: 470, kwh: 14.6 },
+                 total: 13, total_min: 152, days: rows([8, 10, 0, 9, 11, 7, 9], [14, 12, 16, 13, 0, 18, 25]) },
+      heating: { gas_gbp: 11.8, weeks: ['W35', 'W36', 'W37', 'W38', 'W39', 'W40', 'W41', 'W42'].map(function (label, n) {
+        return { label: label, gbp: [4.1, 3.9, 4.6, 5.2, 7.9, 8.1, 10.2, 11.8][n], temp: [19, 18, 17, 15, 13, 12, 10, 9][n] };
+      }), line: '£1.60 more than last week (colder: 9° vs 10°)' },
       energy: { week_cost: 29.6, vs_last_week_pct: 12, series: {
         labels: ['W31', 'W32', 'W33', 'W34', 'W35', 'W36', 'W37', 'W38', 'W39', 'W40', 'W41', 'W42'],
         elec: [17.2, 16.8, 18.1, 17.5, 16.2, 17.9, 15.8, 17.4, 15.6, 17.1, 16.2, 17.8],

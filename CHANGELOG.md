@@ -8,6 +8,15 @@
   them off.
 - Recap: `month_routes`, "Where we went": the last four weeks' routes together on one map, in each person's colour,
   with how many routes and how far each.
+- Recap: one energy card (the twelve weeks, with the week, last week and a year ago in its line) instead of two that
+  could disagree; `heating` gets its own card, the gas a week as bars with how cold it was.
+- Recap: Showers replaces the shower duel: each person's minutes a day as paired bars (`showers.days`), nobody winning.
+- Recap: What we watched shows where the hours went as one split bar, and each day's hours; the week on a plate captions
+  each photo with its day and dish (`food.photos` items may be `{ picture, day, name }`); Next week is a calendar, a
+  column a day; Max's path pictures are shown tall with the robot app's header cropped off.
+- Recap: the next card waits for the last one to go, so two never show at once.
+- Home: the header is one row (the room, the chips, the clock) with the date and what's next on one line under it, so
+  neither is cut short; a chip you can't press has no pill; `tv.players` puts what's playing on the TV card.
 
 ## 1.5.0
 

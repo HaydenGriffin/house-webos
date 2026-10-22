@@ -29,20 +29,30 @@ svg { display: block; width: 100%; height: 100%; fill: currentColor; }
 #house > * + * { margin-top: 22px; }
 #house[aria-busy='true'] .layout { opacity: .55; }
 
-.top { display: flex; align-items: center; justify-content: space-between; }
+/* The header: the room's name, the glance chips and the clock on one row; the date and what's next on one line under. */
+.top { display: block; }
+.title-row { display: flex; align-items: center; }
+.title-row h1 { flex: none; margin-right: 28px; white-space: nowrap; }
+.subline { margin-top: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#next::before { content: ' · '; }
 h1 { font-size: 56px; line-height: 1.05; }
-.title { flex: 1 1 auto; min-width: 0; margin-right: 32px; }
-.title .sub { margin-top: 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.glance { display: flex; flex: none; align-items: center; }
-#clock { font: 600 80px/1 var(--num-font); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+.glance { display: flex; flex: 1 1 auto; justify-content: flex-end; align-items: center; min-width: 0; }
+#clock { flex: none; font: 600 80px/1 var(--num-font); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
 .chip { display: flex; align-items: center; min-height: 76px; padding: 8px 28px 8px 8px; white-space: nowrap;
   border-radius: 40px; background: var(--panel); font-size: 30px; }
 .chip .disc { width: 60px; height: 60px; padding: 14px; }
-.chip.open { background: var(--warn-ground); color: var(--warn); }
+/* Only what you can press looks pressable: a chip that is just news has no pill. */
+p.chip { background: transparent; padding-left: 0; }
+.chip.open { background: var(--warn-ground); color: var(--warn); padding-left: 8px; }
 .chip.open .disc { background: transparent; box-shadow: inset 0 0 0 3px var(--warn); color: var(--warn); }
 .glance .chip { max-width: 500px; }
 .glance .chip > span:last-child { overflow: hidden; text-overflow: ellipsis; }
-#chips { display: flex; }
+#chips { display: flex; flex: 0 1 auto; min-width: 0; }
+.glance .chip { flex: 0 1 auto; min-width: 0; }
+.glance button.chip { flex-shrink: 0; }
+.glance p.chip { padding-right: 8px; font-size: 28px; }
+.glance p.chip:not(.open) .disc { width: 40px; height: 40px; padding: 4px; background: transparent; color: var(--muted); }
+.glance p.chip > * + * { margin-left: 10px; }
 #chips > * + * { margin-left: 18px; }
 .person .initial { display: grid; place-items: center; padding: 0; font-size: 28px; font-weight: 600; }
 .person .where { font-weight: 400; color: var(--muted); }
@@ -82,7 +92,11 @@ section { min-width: 0; }
 .tv .head .text { display: flex; flex-direction: column; min-width: 0; margin-left: 22px; }
 .tv .head .name { font-size: 34px; }
 .tv .head .sub { font-size: 28px; }
-.tv .hero { flex: 1; margin: 22px 0 18px; font-size: 52px; line-height: 1.1; overflow: hidden; }
+.tv .hero { display: flex; flex: 1; align-items: center; min-height: 0; margin: 18px 0; overflow: hidden; }
+.tv .now { flex: 1; min-width: 0; }
+.tv .app { margin-bottom: 10px; font-size: 32px; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.tv .line { display: -webkit-box; overflow: hidden; font-size: 56px; line-height: 1.12; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
+.tv .art { flex: none; width: 240px; height: 240px; margin-left: 28px; border-radius: 24px; object-fit: cover; background: var(--raised); }
 .quick { display: flex; }
 .quick:empty { display: none; }
 .quick > * + * { margin-left: 16px; }
@@ -233,6 +247,7 @@ section { min-width: 0; }
 .r-main ~ .r-step { transition-delay: .62s; }
 .r-main ~ .r-step ~ .r-step { transition-delay: .76s; }
 .r-card.r-out { opacity: 0; }
+.r-card.r-wait { opacity: 0; transition: none; }
 .r-card.r-out.r-fwd { transform: translateX(-80px); }
 .r-card.r-out.r-bwd { transform: translateX(80px); }
 
@@ -349,7 +364,11 @@ section { min-width: 0; }
 .r-in .r-plate { opacity: 1; transform: rotate(var(--tilt)); }
 /* A slight zoom crops the app buttons that recipe pictures saved from Lifesum screenshots carry in their corners. */
 .r-plate span { display: block; height: 100%; overflow: hidden; border-radius: 24px; }
+.r-plate span { position: relative; }
 .r-plate img { display: block; width: 100%; height: 100%; object-fit: cover; transform: scale(1.12); }
+.r-plate-name { position: absolute; left: 0; right: 0; bottom: 0; padding: 40px 18px 14px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  background: linear-gradient(transparent, rgba(0,0,0,.78)); font-size: 26px; font-weight: 600; color: #fff; }
+.r-plates-1 .r-plate-name { font-size: 34px; }
 .r-platecard .r-line { margin-top: 40px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .r-platecard .r-main ~ .r-step { transition-delay: 1.3s; }
 
@@ -516,6 +535,7 @@ section { min-width: 0; }
 .r-watch-side .r-big { margin-top: 0; font-size: 240px; }
 .r-tvdays { display: flex; align-items: flex-end; margin-top: 44px; width: 560px; }
 .r-tvday { flex: 1; text-align: center; }
+.r-tvday b { display: block; height: 34px; font: 600 26px/34px var(--num-font); color: var(--muted); }
 .r-tvday span { display: block; width: 34px; margin: 0 auto; border-radius: 6px 6px 2px 2px; background: rgba(244,242,238,.55); }
 .r-tvday p { margin-top: 10px; font-weight: 400; font-size: 28px; color: var(--muted); }
 .r-shows { flex: 1; min-width: 0; margin-left: 72px; }
@@ -539,16 +559,16 @@ section { min-width: 0; }
 .r-facts { display: flex; flex-wrap: wrap; margin-top: 36px; }
 .r-facts span { margin: 0 18px 18px 0; padding: 14px 30px; border-radius: 40px; background: var(--panel); font-size: 38px; white-space: nowrap; }
 
-/* Max with the maps of where he went: the cleans above, a floor each side by side under its name. */
-.r-maxfloors .r-body { flex-direction: column; align-items: flex-start; }
-.r-maxfloors .r-max-text { padding-right: 0; }
-.r-maxfloors .r-max-text .r-big { font-size: 130px; margin-top: 12px; }
-.r-maxfloors .r-max-text .r-line { margin-top: 10px; font-size: 44px; }
-.r-floors { display: flex; margin-top: 26px; }
-.r-floor { flex: 0 0 auto; width: 840px; }
-.r-floor + .r-floor { margin-left: 48px; }
-.r-floors .r-map { width: 100%; height: 400px; padding: 22px; transform: none; }
-.r-floors-1 .r-floor { width: 1100px; }
+/* Max with the maps of where he went: the cleans beside a floor each, tall, under its name. The pictures are the
+   robot app's own (white, its figures across the top): the figures are cropped off so the path gets the room. */
+.r-maxfloors .r-max-text { flex: 1; padding-right: 48px; }
+.r-maxfloors .r-max-text .r-line { font-size: 48px; }
+.r-floors { display: flex; flex: none; }
+.r-floor { flex: 0 0 auto; width: 560px; }
+.r-floor + .r-floor { margin-left: 40px; }
+.r-floors .r-map { position: relative; width: 100%; height: 660px; padding: 0; overflow: hidden; background: #fff; transform: none; }
+.r-floors .r-map img { position: absolute; left: -6%; top: -24%; width: 112%; height: auto; object-fit: initial; }
+.r-floors-1 .r-floor { width: 700px; }
 .r-floor-name { margin-top: 16px; font-size: 38px; color: var(--muted); }
 
 /* Next week with what's on: the forecast, then the events a row each. */
@@ -563,3 +583,46 @@ section { min-width: 0; }
 .r-event-title { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .r-nextevents .r-line { margin-top: 30px; font-size: 50px; }
 
+
+/* What we watched: where the hours went, one bar split between the apps (or inputs), each named. */
+.r-via { margin-top: 40px; }
+.r-via-bar { display: flex; height: 34px; overflow: hidden; border-radius: 17px; background: var(--raised); }
+.r-via-bar i + i { border-left: 4px solid var(--page); }
+.r-via-key { display: flex; flex-wrap: wrap; margin-top: 18px; font-size: 34px; color: var(--muted); }
+.r-via-key span { display: flex; align-items: center; margin-right: 44px; white-space: nowrap; }
+.r-via-key span i { width: 26px; height: 26px; margin-right: 12px; border-radius: 50%; }
+.r-via-key b { margin-left: 10px; font-weight: 600; color: var(--text); }
+.r-via-0 { background: #80d8ff; }
+.r-via-1 { background: #ffc76b; }
+.r-via-2 { background: #c3a6ff; }
+.r-via-3 { background: #8ee6a6; }
+.r-via-4 { background: #ff9ecb; }
+.r-watchcard .r-shows .r-show:nth-child(n+5) { display: none; }
+
+/* Showers: the minutes a day as paired bars, nobody's bar dimmed. */
+.r-showercard .r-side-n { font-size: 84px; }
+
+/* Heating and hot water: a bar a week of gas, this week lit, how cold it was under each. */
+.r-heat { display: flex; align-items: flex-end; }
+.r-hcol { flex: 1; min-width: 0; text-align: center; opacity: .55; }
+.r-hcol.r-now { opacity: 1; }
+.r-hval { font: 600 34px/1.2 var(--num-font); }
+.r-hbar { display: flex; align-items: flex-end; justify-content: center; height: 300px; margin-top: 10px; }
+.r-hbar span { display: block; width: 70%; max-width: 120px; border-radius: 10px 10px 3px 3px; background: var(--warm); }
+.r-hbar span.r-none { height: 6px; background: var(--raised-2); }
+.r-htemp { margin-top: 14px; font: 600 34px/1 var(--num-font); color: #80d8ff; }
+.r-heatcard .r-mark { display: none; }
+
+/* Next week as a calendar: a column a day, the weather on top, what's on under it. */
+.r-cal { display: flex; }
+.r-calday { flex: 1; min-width: 0; min-height: 440px; padding: 22px 18px; border-radius: 30px; background: var(--panel); }
+.r-calday + .r-calday { margin-left: 16px; }
+.r-calday.r-busy { background: var(--raised); }
+.r-calday .r-day-name { text-align: center; font-weight: 600; color: var(--text); }
+.r-calwx { display: flex; align-items: center; justify-content: center; height: 76px; margin: 8px 0 14px; font: 600 40px/1 var(--num-font); }
+.r-calwx .r-day-icon { width: 56px; height: 56px; margin: 0 10px 0 0; }
+.r-calwx .r-low { margin-left: 8px; font-weight: 400; font-size: 28px; color: var(--muted); }
+.r-calev { display: -webkit-box; margin-top: 14px; padding-top: 14px; border-top: 2px solid var(--line); overflow: hidden;
+  font-size: 30px; line-height: 1.25; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
+.r-calev .r-event-icon { display: inline-block; width: 30px; height: 30px; margin-right: 8px; vertical-align: -5px; }
+.r-calev b { font-weight: 600; color: var(--muted); }

@@ -57,33 +57,19 @@ test('restless says 1 time, not 1 times', () => {
   assert.strictEqual(card.unit, 'time');
 });
 
-const showerLine = (showers) => load().build({ stats: stats({ showers }) }).find((c) => c.label === 'The shower duel').line;
-
-test('the shower duel says who used more water this week, with the energy, when the gap is worth saying', () => {
-  assert.strictEqual(showerLine({ alex: { count: 6, avg_min: 8, avg_temp: 41, litres: 210, kwh: 6.1 }, sam: { count: 6, avg_min: 12, avg_temp: 44, litres: 340, kwh: 9.8 } }),
-    'Sam’s showers used 130 more litres this week, 3.7 kWh more to heat');
-  assert.strictEqual(showerLine({ alex: { count: 5, avg_min: 8, litres: 300 }, sam: { count: 5, avg_min: 12, litres: 210 } }),
-    'Alex’s showers used 90 more litres this week');
-});
-
-const litres = (a, b, extra) => showerLine({ alex: Object.assign({ count: 4, avg_min: 8, litres: a }, extra && extra.alex),
-  sam: Object.assign({ count: 4, avg_min: 9, litres: b }, extra && extra.sam) });
-
-test('the water gap needs 10 litres and 15% of the larger, both inclusive', () => {
-  assert.strictEqual(litres(60, 50), 'Alex’s showers used 10 more litres this week');
-  assert.strictEqual(litres(59, 50), '');
-  assert.strictEqual(litres(100, 85), 'Alex’s showers used 15 more litres this week');
-  assert.strictEqual(litres(100, 86), '');
-});
-
-test('the energy clause rounds to tenths before the 0.5 kWh threshold', () => {
-  assert.strictEqual(litres(300, 200, { alex: { kwh: 2.3 }, sam: { kwh: 1.8 } }), 'Alex’s showers used 100 more litres this week, 0.5 kWh more to heat');
-  assert.strictEqual(litres(300, 200, { alex: { kwh: 2.2 }, sam: { kwh: 1.8 } }), 'Alex’s showers used 100 more litres this week');
-});
-
-test('unequal shower counts are named, and the energy left out', () => {
-  assert.strictEqual(litres(50, 330, { alex: { count: 1, kwh: 1 }, sam: { count: 7, kwh: 9 } }), 'Sam’s 7 showers used 280 more litres than Alex’s 1 this week');
-  assert.strictEqual(litres(120, 90, { alex: { count: 1 }, sam: { count: 3 } }), 'Alex’s 1 shower used 30 more litres than Sam’s 3 this week');
+test('showers: a bar a day each, no contest; each person\'s count and length, the house\'s week in the line', () => {
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, n) => ({ day, alex: n % 2 ? 8 : 0, sam: n < 5 ? 19 : 0 }));
+  const sh = { alex: { count: 3, avg_min: 8, litres: 150 }, sam: { count: 5, avg_min: 19, litres: 380 }, total: 8, total_min: 119, days };
+  const card = find({ showers: sh }, 'Showers');
+  assert.strictEqual((card.html.match(/r-pbar r-p/g) || []).length, 14);
+  assert.ok(!card.html.includes('r-lost'), 'nobody wins a day');
+  assert.ok(card.html.includes('3 × 8 min') && card.html.includes('5 × 19 min'));
+  assert.strictEqual(card.line, '8 showers, 1h 59m in all · 530 litres');
+  assert.strictEqual(card.sub, 'Minutes a day');
+  assert.strictEqual(find({ showers: sh }, 'The shower duel'), undefined);
+  const plain = find({ showers: { alex: { count: 1, avg_min: 9 }, sam: { count: 2, avg_min: 12 } } }, 'Showers');
+  assert.strictEqual(plain.line, '3 showers, 33 min in all');
+  assert.strictEqual(find({ showers: { alex: { count: 1, avg_min: 9 } } }, 'Showers'), undefined);
 });
 
 test('the quiz answer must be one of the three tiles shown', () => {
@@ -96,11 +82,6 @@ test('the quiz answer must be one of the three tiles shown', () => {
   assert.ok(!card.body.includes('>d<'), 'only three tiles');
 });
 
-test('a small water gap, or one side without litres, falls back to the hotter showers', () => {
-  const hot = { alex: { count: 5, avg_min: 8, avg_temp: 41 }, sam: { count: 6, avg_min: 12, avg_temp: 44 } };
-  assert.strictEqual(showerLine({ alex: Object.assign({ litres: 300 }, hot.alex), sam: Object.assign({ litres: 290 }, hot.sam) }), 'Sam’s showers run 3° hotter');
-  assert.strictEqual(showerLine({ alex: Object.assign({ litres: 300 }, hot.alex), sam: hot.sam }), 'Sam’s showers run 3° hotter');
-});
 
 test('a month tile pair needs both people', () => {
   const R = load();
@@ -366,14 +347,16 @@ test('what we watched: the detail with two shows or three days, else the plain c
   assert.strictEqual(plain.value, 12);
   assert.strictEqual(plain.line, 'Mostly The Bear');
   const w = { hours: 20, top: [{ title: 'A', hours: 6 }, { title: 'B', hours: 3 }], inputs: [{ name: 'Shield', hours: 15 }, { name: 'PS5', hours: 4.5 }],
-              apps: [{ name: 'Netflix', hours: 9 }] };
+              apps: [{ name: 'Netflix', hours: 9 }, { name: 'YouTube', hours: 3 }] };
   const detail = find({ watched: w }, 'What we watched');
   assert.ok(detail.html.includes('r-shows') && detail.html.includes('6 h'));
-  assert.strictEqual(detail.line, 'Shield 15 h · PS5 4½ h', 'inputs when there are two, else apps');
-  const one = Object.assign({}, w, { inputs: [{ name: 'Shield', hours: 15 }] });
-  assert.strictEqual(find({ watched: one }, 'What we watched').line, 'Netflix 9 h');
+  // where the hours went: the apps when there are two, else the inputs, as one split bar with a key
+  assert.ok(/Netflix <b>9 h<\/b>/.test(detail.html) && /YouTube <b>3 h<\/b>/.test(detail.html) && !detail.html.includes('PS5'), detail.html);
+  assert.ok(detail.html.includes('style="width:75.00%"'));
+  const oneApp = Object.assign({}, w, { apps: [{ name: 'Netflix', hours: 9 }] });
+  assert.ok(/PS5 <b>4½ h<\/b>/.test(find({ watched: oneApp }, 'What we watched').html));
   const days = find({ watched: { hours: 9, days: [{ day: 'Mon', hours: 2 }, { day: 'Tue', hours: 3 }, { day: 'Wed', hours: 4 }] } }, 'What we watched');
-  assert.ok(days.html.includes('r-tvdays'));
+  assert.ok(days.html.includes('r-tvdays') && days.html.includes('<b>4</b>'), 'each day says its hours');
 });
 
 /* ---------- new recipes ---------- */
@@ -390,16 +373,32 @@ test('new recipes: a card each for the first-time ones, three at most, the pictu
 
 /* ---------- energy over time, and records ---------- */
 const series = (n) => ({ labels: Array.from({ length: n }, (_, k) => 'W' + (30 + k)), elec: Array(n).fill(15), gas: Array(n).fill(5) });
-test('energy over time: four weeks with a figure at least, twelve shown at most, the change in a line', () => {
-  assert.strictEqual(find({ energy: { week_cost: 20, series: series(3) } }, 'Energy over time'), undefined);
+test('energy: one card, the twelve weeks with the week, last week and last year in the line', () => {
+  assert.strictEqual(find({ energy: { week_cost: 20, series: series(3) } }, 'Energy').html, undefined, 'too few weeks: the plain card');
   const s = series(14);
   s.elec[13] = 25;
-  const card = find({ energy: { week_cost: 30, series: s } }, 'Energy over time');
+  const cards = load().build({ stats: stats({ energy: { week_cost: 30, vs_last_week_pct: 12, last_year_cost: 34, series: s } }) });
+  assert.strictEqual(cards.filter((c) => /Energy/.test(c.label)).length, 1, 'energy once');
+  const card = cards.find((c) => c.label === 'Energy');
   assert.strictEqual((card.html.match(/r-ecol/g) || []).length, 12);
   assert.ok(!card.html.includes('>W30<') && card.html.includes('>W43<'));
-  assert.strictEqual(card.line, '£30.00 this week, 50% more than the week before');
+  assert.strictEqual(card.line, '£30.00 this week · 12% more than last week · £4 less than a year ago');
   assert.ok(!card.html.includes('Same week last year'), 'no key for a missing last year');
   assert.ok(find({ energy: { week_cost: 20 } }, 'Energy'), 'the old card stays');
+});
+
+test('heating and hot water: the weeks as bars with the cold under each; a highlight saying the same is left out', () => {
+  const weeks = ['31 Aug', '7 Sep', '14 Sep', '21 Sep', '28 Sep', '5 Oct', '12 Oct', '19 Oct'].map((label, n) => ({ label, gbp: n < 2 ? null : 6 + n, temp: 18 - n }));
+  const h = { gas_gbp: 13, prev_gbp: 12, weeks, line: '£1 more than last week' };
+  const extra = { highlights: [{ label: 'Heating and hot water', text: '£13' }, { label: 'Ewa’s kitchen', value: 4 }] };
+  const cards = load().build({ stats: stats(Object.assign({ heating: h }, extra)) });
+  const card = cards.find((c) => c.label === 'Heating and hot water');
+  assert.strictEqual(cards.filter((c) => c.label === 'Heating and hot water').length, 1);
+  assert.ok(cards.some((c) => c.label === 'Ewa’s kitchen'), 'other highlights stay');
+  assert.strictEqual((card.html.match(/r-hcol/g) || []).length, 8);
+  assert.ok(card.html.includes('>£13<') && card.html.includes('>11°<') && card.html.includes('class="r-none"'));
+  assert.strictEqual(card.line, '£13.00 on gas this week · £1 more than last week');
+  assert.strictEqual(find({ heating: { gas_gbp: 13, weeks: weeks.slice(0, 4) } }, 'Heating and hot water').value, 13, 'two weeks: the one number');
 });
 
 test('a bad record is said plainly, with no sparkles; a good one still celebrates', () => {
@@ -424,17 +423,32 @@ test('the vacuum shows its floors when their pictures loaded, else the one map',
 });
 
 /* ---------- next week ---------- */
-test('next week: events and the bins in day order, and the card shows with events alone', () => {
-  const next = { events: [{ day: 'Sat', time: '10:00', title: 'Boiler' }, { day: 'Tue', time: '18:30', title: 'Dinner' }, { day: 'Tue', title: 'Birthday' }],
+test('next week: a calendar, a column a day from the forecast\'s first, its weather and what\'s on, the bins too', () => {
+  const next = { forecast: [{ day: 'Mon', condition: 'rainy', high: 14, low: 9 }, { day: 'Tue', condition: 'sunny', high: 16 }],
+                 events: [{ day: 'Sat', time: '10:00', title: 'Boiler' }, { day: 'Tue', time: '18:30', title: 'Dinner' }, { day: 'Tue', title: 'Birthday' }],
                  bins: { day: 'Monday', what: 'Garden' } };
   const card = find({ next_week: next }, 'Next week');
-  const at = (t) => card.html.indexOf(t);
-  assert.ok(at('Garden bin') < at('Birthday') && at('Birthday') < at('Dinner') && at('Dinner') < at('Boiler'), card.html);
-  assert.strictEqual(find({ next_week: { bins: { day: 'Monday' } } }, 'Next week'), undefined, 'bins alone are not a card');
+  const cols = card.html.split('r-calday').slice(1);
+  assert.strictEqual(cols.length, 7);
+  assert.ok(cols[0].includes('>Mon<') && cols[0].includes('Garden bin') && cols[0].includes('14°'));
+  assert.ok(cols[1].indexOf('Birthday') < cols[1].indexOf('Dinner') && cols[1].includes('<b>18:30</b>'), cols[1]);
+  assert.ok(cols[5].includes('>Sat<') && cols[5].includes('Boiler') && cols[5].includes('r-busy'));
+  assert.ok(!cols[2].includes('r-busy') && !cols[2].includes('°'), 'no forecast, nothing on: an empty day');
+  const fri = find({ next_week: { forecast: [{ day: 'Fri', high: 12 }], events: [{ day: 'Thu', title: 'Party' }] } }, 'Next week');
+  assert.ok(fri.html.split('r-calday')[7].includes('Party'), 'the week runs from the forecast\'s first day');
+  assert.strictEqual(find({ next_week: { bins: { day: 'Monday' } } }, 'Next week').html.includes('Bins bin'), true, 'the bins make a card');
 });
 
 test('a week without restless, goals or house_says still builds', () => {
   const labels_ = labels(load().build({ stats: stats({ restless: null, goals: null, house_says: null, records: [{ text: 'A: b' }] }) }));
   assert.ok(!labels_.includes('Up in the night') && !labels_.includes('The house says'));
   assert.ok(labels_.includes('Energy'));
+});
+
+test('the week on a plate: each photo says its day and what it was; plain URLs still work', () => {
+  const photos = [{ url: 'a.jpg', day: 'Mon', name: 'Chana masala' }, { url: 'b.jpg', day: 'Tue' }, 'c.jpg'];
+  const card = find({ food: { photos: [], pick: null } }, 'The week on a plate', { foodPhotos: photos });
+  assert.ok(card.html.includes('<b class="r-plate-name">Mon · Chana masala</b>') && card.html.includes('>Tue</b>'));
+  assert.strictEqual((card.html.match(/r-plate-name/g) || []).length, 2, 'no caption without a day or a name');
+  assert.ok(card.html.includes('src="c.jpg"'));
 });

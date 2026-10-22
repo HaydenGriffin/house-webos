@@ -100,6 +100,7 @@
     TILES.forEach(function (t) { if (t.entity) list.push(t.entity); });
     if (CONFIG.door) list.push(CONFIG.door);
     if (TV && TV.source_sensor) list.push(TV.source_sensor);
+    if (TV && TV.players) list.push.apply(list, TV.players);
     if (MUSIC && MUSIC.player) list.push(MUSIC.player);
     PEOPLE.forEach(function (p) {
       if (p.person) list.push(p.person);
@@ -166,6 +167,20 @@
       states[id] = cur;
     }
     if (ev.r) ev.r.forEach(function (rid) { delete states[rid]; });
+  }
+  /* What the TV's players (tv.players, in order) are playing: the first one playing or paused with a title or an app,
+     as { app, title, picture, paused }; null when none is. */
+  function nowPlaying() {
+    var list = (TV && TV.players) || [];
+    for (var n = 0; n < list.length; n++) {
+      var id = list[n], s = st(id).s, title = attr(id, 'media_title'), app = attr(id, 'app_name');
+      if ((s === 'playing' || s === 'paused') && (title || app)) {
+        var series = attr(id, 'media_series_title');
+        return { app: String(app || ''), title: String(series && title ? series + ' · ' + title : title || app), picture: attr(id, 'entity_picture') || '',
+                 paused: s === 'paused' };
+      }
+    }
+    return null;
   }
   /* "domain.service" with optional data and target, as in a Home Assistant action. */
   function call(service, data, target) {
@@ -327,9 +342,16 @@
     if (TV) {
       var src = TV.source_sensor, source = src ? st(src).s : '';
       // The big line is what's on ('The Bear, S3 E4'); the source sits small beside the card's name.
-      var line = String(attr(src, 'line') || ''), lead = source + ' · ';
-      $('tv-source').textContent = !src ? '' : dead(src) ? 'Unavailable' : source;
-      $('tv-line').textContent = !src || dead(src) ? 'TV status unavailable' : line.indexOf(lead) === 0 ? line.slice(lead.length) : line || source;
+      var line = String(attr(src, 'line') || ''), lead = source + ' · ', on = nowPlaying(), players = (TV.players || []).length;
+      // With players (tv.players), the big line is what they're playing and the sensor's whole line sits small
+      $('tv-source').textContent = !src ? '' : dead(src) ? 'Unavailable' : players ? line || source : source;
+      $('tv-app').hidden = !on || !on.app;
+      $('tv-app').textContent = on ? on.app + (on.paused ? ' · paused' : '') : '';
+      $('tv-line').textContent = on ? on.title : !src || dead(src) ? 'TV status unavailable' : players ? 'Nothing playing'
+        : line.indexOf(lead) === 0 ? line.slice(lead.length) : line || source;
+      var art = on && on.picture ? (/^(https?:|data:)/.test(on.picture) || useDemo ? on.picture : haBase() + on.picture) : '';
+      if ($('tv-art').getAttribute('src') !== art) { if (art) $('tv-art').setAttribute('src', art); else $('tv-art').removeAttribute('src'); }
+      $('tv-art').hidden = !art;
       all('[data-source]').forEach(function (b) {
         var sel = b.getAttribute('data-source') === source;
         b.classList.toggle('selected', sel); b.setAttribute('aria-pressed', sel ? 'true' : 'false');
@@ -575,8 +597,16 @@
       });
     });
   }
-  function foodPhotos(paths, done) {
-    pictures(paths, 8, function (list, got) { done(got.filter(Boolean)); });
+  /* The food photos (each a path, or { picture, day?, name? }) that loaded, as { url, day, name }, in their order. */
+  function foodPhotos(items, done) {
+    var info = (items || []).map(function (p) { return typeof p === 'string' ? { picture: p } : p || {}; });
+    var paths = info.map(function (p) { return p.picture; });
+    pictures(paths, 8, function (list, got) {
+      done(list.map(function (path, n) {
+        var p = info[paths.indexOf(path)];
+        return got[n] ? { url: got[n], day: p.day || '', name: p.name || '' } : null;
+      }).filter(Boolean));
+    });
   }
   /* The pictures the recap's cards may show (book covers, new recipes' pictures, the vacuum's maps), as { path: URL } for
      the ones that loaded. */
