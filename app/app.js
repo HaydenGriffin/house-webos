@@ -547,11 +547,11 @@
     if (!pic || dead(id)) return '';
     return /^(https?:|data:)/.test(pic) || useDemo ? pic : haBase() + pic;
   }
-  /* Pictures (food photos, book covers), loaded before the recap starts so a card never shows a gap; done(list, urls)
-     gets the paths it tried and, at the same places, the URL of each one that loaded (undefined if it didn't), within
-     5 s. Paths under /api/ need a signed-in user, so auth/sign_path signs each for 10 minutes instead of anything being
-     made public. */
-  function pictures(paths, max, done) {
+  /* Pictures (food photos, book covers, map tiles), loaded before the recap starts so a card never shows a gap;
+     done(list, urls) gets the paths it tried and, at the same places, the URL of each one that loaded (undefined if it
+     didn't), within waitMs (default 5 s). Paths under /api/ need a signed-in user, so auth/sign_path signs each for 10
+     minutes instead of anything being made public; a full URL on Home Assistant carries its own token. */
+  function pictures(paths, max, done, waitMs) {
     var list = (paths || []).filter(function (p, n, given) { return typeof p === 'string' && p && given.indexOf(p) === n; }).slice(0, max);
     var got = [], left = list.length, answered = false;
     function once() { if (!answered) { answered = true; done(list, got); } }
@@ -563,9 +563,10 @@
       img.src = url;
     }
     if (!left) return once();
-    setTimeout(once, 5000);
+    setTimeout(once, waitMs || 5000);
     list.forEach(function (p, n) {
       if (/^(https:\/\/|data:)/.test(p) || useDemo) return load(n, p);
+      if (p.indexOf(haBase() + '/') === 0) return load(n, p);
       if (p.charAt(0) !== '/') return settle();
       if (p.indexOf('/api/') !== 0) return load(n, haBase() + p);
       if (!connected) return settle();
@@ -591,6 +592,29 @@
       done(map);
     });
   }
+  /* The street maps under the recap's routes: OpenStreetMap tiles through Home Assistant's own map tiles proxy (the one
+     its map card uses, 2026.10 on), with the token HA hands out for it; fetched before the recap starts, as { 'z/x/y':
+     URL }. Nothing (the routes drawn alone) with recap.street_maps false, an older HA, or no tiles needed. In the demo
+     they come from OpenStreetMap itself. */
+  var MAP_TILES_MAX = 80, MAP_TILES_WAIT = 8000; // a month's map and two routes need about 60; HA fetches them cold
+  function mapTiles(s, done) {
+    var keys = RECAP.street_maps === false ? [] : window.HouseRecap.mapTiles(s);
+    if (!keys.length) return done({});
+    function fetchAll(url) {
+      pictures(keys.map(url), MAP_TILES_MAX, function (list, got) {
+        var map = {};
+        keys.forEach(function (k, n) { if (got[n]) map[k] = got[n]; });
+        done(map);
+      }, MAP_TILES_WAIT);
+    }
+    if (useDemo) return fetchAll(function (k) { return 'https://tile.openstreetmap.org/' + k + '.png'; });
+    if (!connected) return done({});
+    send({ type: 'map_tiles/access_token' }, function (m) {
+      var token = m.success && m.result && m.result.token;
+      if (!token) return done({});
+      fetchAll(function (k) { return haBase() + '/api/map_tiles/raster/' + k + '.png?token=' + encodeURIComponent(token); });
+    });
+  }
   /* A producer whose stats don't follow docs/recap-stats.md can be reshaped by window.HOUSE_STATS_ADAPTER, a function
      defined in config.js (push_config.py --adapter). A failing adapter leaves the stats as they came. */
   function adaptStats(stats) {
@@ -603,15 +627,16 @@
     if (recapStarting || !RECAP) return;
     if (recap) { recap.stop(); recap = null; }
     recapStarting = true;
-    var rawStats = attr(RECAP.stats, RECAP.attribute || 'stats'), stats = adaptStats(rawStats), hours = null, photos = [], pics = {}, waiting = 3;
+    var rawStats = attr(RECAP.stats, RECAP.attribute || 'stats'), stats = adaptStats(rawStats), hours = null, photos = [], pics = {}, tiles = {}, waiting = 4;
     tvHours(function (h) { hours = h; ready(); });
     foodPhotos(stats && stats.food && stats.food.photos, function (p) { photos = p; ready(); });
     recapPictures(stats, function (c) { pics = c; ready(); });
+    mapTiles(stats, function (t) { tiles = t; ready(); });
     function ready() {
       if (--waiting) return;
       recapStarting = false;
       var vac = stats && stats.vacuum;
-      var cards = window.HouseRecap.build({ stats: stats, tvHours: hours, foodPhotos: photos, pictures: pics, locale: LOCALE,
+      var cards = window.HouseRecap.build({ stats: stats, tvHours: hours, foodPhotos: photos, pictures: pics, tiles: tiles, locale: LOCALE,
         vacuumMap: useDemo ? DEMO.vacuumMap : cameraPicture((vac && vac.map_entity) || RECAP.vacuum_map), backTo: backTo(), now: useDemo && DEMO.now ? DEMO.now() : null });
       if (!cards.length) {
         if (auto) return close();

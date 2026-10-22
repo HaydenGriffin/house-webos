@@ -293,20 +293,31 @@ test('what we did: an item needs a known person, a day and a name or kind; given
   assert.ok(!card.html.includes('r-who r-p2'), 'nobody with nothing done');
 });
 
-test('routePath: fits the box, keeps north up and the shape, null without two usable points', () => {
+test('routeMap: fits every line in the box in Web Mercator, north up, with the tiles under it; null without a line', () => {
   const R = load();
-  const r = R.routePath([[51.5, -0.1], [51.51, -0.1], [51.51, -0.08]], 800, 500, 40);
+  const m = R.routeMap([[[51.5, -0.1], [51.51, -0.1], [51.51, -0.08]]], 800, 500, 40);
   const xy = (p) => p.split(/[ML]/).filter(Boolean).map((q) => q.split(',').map(Number));
-  const pts = xy(r.d);
+  const pts = xy(m.lines[0].d);
   pts.forEach(([x, y]) => assert.ok(x >= 39.9 && x <= 760.1 && y >= 39.9 && y <= 460.1, 'inside the padding: ' + x + ',' + y));
   assert.ok(pts[1][1] < pts[0][1], 'north is up');
   assert.ok(pts[2][0] > pts[1][0], 'east is right');
-  const wide = (pts[2][0] - pts[1][0]) / (pts[0][1] - pts[1][1]);
-  assert.ok(Math.abs(wide - 0.02 * Math.cos(51.505 * Math.PI / 180) / 0.01) < 0.01, 'longitude shrunk by the latitude');
-  assert.deepStrictEqual(Array.from(r.start), pts[0]);
-  assert.strictEqual(R.routePath([[51.5, -0.1]], 800, 500, 40), null);
-  assert.strictEqual(R.routePath([[51.5, -0.1], [51.5, -0.1]], 800, 500, 40), null);
-  assert.strictEqual(R.routePath([['a', 1], null, [51.5, -0.1]], 800, 500, 40), null);
+  assert.deepStrictEqual(Array.from(m.lines[0].start), pts[0]);
+  assert.deepStrictEqual(Array.from(m.lines[0].end), pts[2]);
+  // the tiles cover the whole box, at the zoom whose tiles show near 256 px, and a point sits on its own tile
+  const covers = (x, y) => m.tiles.some((t) => t.left <= x && x <= t.left + t.size && t.top <= y && y <= t.top + t.size);
+  [[0, 0], [800, 0], [0, 500], [800, 500]].forEach(([x, y]) => assert.ok(covers(x, y), x + ',' + y));
+  const z = Number(m.tiles[0].key.split('/')[0]);
+  assert.strictEqual(z, 15);
+  const n = 2 ** z, tx = (-0.1 + 180) / 360 * n, t = m.tiles.find((k) => k.key.split('/')[1] === String(Math.floor(tx)));
+  assert.ok(Math.abs(t.left + (tx - Math.floor(tx)) * (t.size - 0.4) - pts[0][0]) < 0.3, 'the start sits on its tile');
+  // two lines share one fit
+  const two = R.routeMap([[[51.5, -0.1], [51.51, -0.1]], [[51.5, -0.2], [51.49, -0.21]]], 800, 500, 40);
+  assert.strictEqual(two.lines.length, 2);
+  assert.ok(xy(two.lines[1].d)[0][0] < xy(two.lines[0].d)[0][0], 'the western one is left');
+  assert.strictEqual(Number(R.routeMap([[[51.5, -0.1], [51.50001, -0.10001]]], 800, 500, 40).tiles[0].key.split('/')[0]), 17, 'never past 17');
+  assert.strictEqual(R.routeMap([[[51.5, -0.1]]], 800, 500, 40), null);
+  assert.strictEqual(R.routeMap([[[51.5, -0.1], [51.5, -0.1]]], 800, 500, 40), null);
+  assert.strictEqual(R.routeMap([[['a', 1], null, [51.5, -0.1]]], 800, 500, 40), null);
 });
 
 test('out and about: only with a route, two at most, the longest first', () => {
@@ -317,6 +328,36 @@ test('out and about: only with a route, two at most, the longest first', () => {
     act('alex', 'cycle', 'Wed', '2026-10-21', { name: 'Middle', km: 6, route: loop(0.03) })];
   const card = find({ activities: { items } }, 'Out and about');
   assert.ok(card.html.indexOf('Long') < card.html.indexOf('Middle') && !card.html.includes('Short'));
+  assert.ok(!card.html.includes('r-map-tiles') && !card.html.includes('OpenStreetMap'), 'no tiles given: the lines alone');
+});
+
+test('out and about: a street map under each route when every tile came, none when one is missing', () => {
+  const R = load();
+  const items = [act('sam', 'run', 'Tue', '2026-10-20', { name: 'Long', km: 10, route: [[51.5, -0.1], [51.52, -0.1], [51.52, -0.07]] })];
+  const keys = R.mapTiles(stats({ activities: { items } }));
+  assert.ok(keys.length >= 4 && keys.every((k) => /^\d+\/\d+\/\d+$/.test(k)));
+  const all = Object.fromEntries(keys.map((k) => [k, 'http://ha/api/map_tiles/raster/' + k + '.png?token=t']));
+  const card = find({ activities: { items } }, 'Out and about', { tiles: all });
+  assert.strictEqual((card.html.match(/<img /g) || []).length, keys.length);
+  assert.ok(card.html.includes('r-on-map') && card.html.includes('© OpenStreetMap contributors') && card.html.includes('r-route-halo'));
+  delete all[keys[0]];
+  assert.ok(!find({ activities: { items } }, 'Out and about', { tiles: all }).html.includes('<img '));
+});
+
+test('where we went: the last four weeks on one map, from three routes, with each person\'s count and km', () => {
+  const R = load();
+  const r = (d) => [[51.5 + d, -0.1], [51.51 + d, -0.1 + d]];
+  const month = { first: '2026-09-28', last: '2026-10-25', items: [
+    { who: 'alex', kind: 'run', date: '2026-10-02', km: 5, route: r(0) }, { who: 'sam', kind: 'walk', date: '2026-10-10', km: 3.2, route: r(0.01) },
+    { who: 'alex', kind: 'walk', date: '2026-10-21', km: 7.13, route: r(0.02) }, { who: 'nobody', kind: 'walk', date: '2026-10-22', route: r(0.03) }] };
+  const card = find({ month_routes: month }, 'Where we went');
+  assert.strictEqual(card.sub, 'The last four weeks');
+  assert.strictEqual((card.html.match(/<path class="r-p\d"/g) || []).length, 3, 'an unknown person is left out');
+  assert.ok(/Alex<\/b> 2 routes · 12\.1 km/.test(card.html) && /Sam<\/b> 1 route · 3\.2 km/.test(card.html), card.html);
+  assert.strictEqual(find({ month_routes: { items: month.items.slice(0, 2) } }, 'Where we went'), undefined);
+  const keys = R.mapTiles(stats({ month_routes: month }));
+  const tiles = Object.fromEntries(keys.map((k) => [k, 'x/' + k]));
+  assert.ok(find({ month_routes: month }, 'Where we went', { tiles }).html.includes('r-map-tiles'));
 });
 
 /* ---------- what we watched ---------- */

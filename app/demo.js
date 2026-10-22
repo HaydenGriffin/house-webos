@@ -225,6 +225,15 @@
         act('sam', 'run', 'parkrun', 5, '09:00', 29, 5.0, loop(51.4613, -0.1156, 380, 450, 140, 3)),
         act('alex', 'cycle', 'Ride out to Richmond', 6, '10:15', 64, 18.6),
       ] },
+      month_routes: { first: iso(-21), last: iso(6), items: [
+        { who: 'alex', kind: 'run', date: iso(-20), km: 6.1, route: loop(51.5094, -0.1726, 600, 380, 60, 5) },
+        { who: 'sam', kind: 'run', date: iso(-16), km: 5.0, route: loop(51.4613, -0.1156, 380, 450, 60, 3) },
+        { who: 'alex', kind: 'walk', date: iso(-13), km: 4.2, route: loop(51.4785, -0.1490, 420, 300, 60, 7) },
+        { who: 'sam', kind: 'run', date: iso(-9), km: 5.0, route: loop(51.4613, -0.1156, 390, 440, 60, 4) },
+        { who: 'sam', kind: 'walk', date: iso(-5), km: 3.6, route: loop(51.4745, -0.1610, 330, 260, 60, 2) },
+        { who: 'alex', kind: 'run', date: iso(0), km: 5.2, route: loop(51.5072, -0.1657, 520, 330, 60, 1) },
+        { who: 'sam', kind: 'run', date: iso(5), km: 5.0, route: loop(51.4613, -0.1156, 380, 450, 60, 3) },
+      ] },
       gym: {
         days: DAYS.map(function (name, n) { return { day: name, alex: n === 1 || n === 5, sam: n === 0 || n === 3 || n === 5 }; }),
         alex: { days: 2, minutes: 105, streak: 3 }, sam: { days: 3, minutes: 170, streak: 6 },

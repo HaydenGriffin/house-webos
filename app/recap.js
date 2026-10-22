@@ -251,41 +251,110 @@
              sub: more > 0 ? 'And ' + more + ' more' : '', cls: 'r-widecard r-actcard', ms: 6500 };
   }
 
-  /* A route as an SVG path: longitude scaled by the cosine of the mean latitude (equirectangular, fine for a walk), fitted
-     into w by h inside pad, north up. null without two usable points. */
-  function routePath(points, w, h, pad) {
-    var pts = (points || []).filter(function (q) { return q && num(q[0]) && num(q[1]); });
-    if (pts.length < 2) return null;
-    var lat0 = 0;
-    pts.forEach(function (q) { lat0 += q[0]; });
-    var k = Math.cos(lat0 / pts.length * Math.PI / 180);
-    var xy = pts.map(function (q) { return [q[1] * k, -q[0]]; });
+  /* Routes on a street map: the lines (each [[lat, lon], …]) in Web Mercator, fitted together into w by h inside pad,
+     north up, and the 256 px tiles under them ({z, x, y, left, top, size}, keyed 'z/x/y'). The zoom is the one whose
+     tiles show nearest their own size, never past MAP_MAX_ZOOM for a short walk. null without a line of two usable
+     points that goes anywhere. */
+  var MAP_MAX_ZOOM = 17;
+  function mercX(lon) { return (lon + 180) / 360; }
+  function mercY(lat) { var s = Math.sin(lat * Math.PI / 180); return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI); }
+  function routeMap(lines, w, h, pad) {
+    var ok = (lines || []).map(function (pts) {
+      return (pts || []).filter(function (q) { return q && num(q[0]) && num(q[1]) && Math.abs(q[0]) < 85; })
+        .map(function (q) { return [mercX(q[1]), mercY(q[0])]; });
+    }).filter(function (xy) { return xy.length >= 2; });
+    if (!ok.length) return null;
     var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    xy.forEach(function (q) { minX = Math.min(minX, q[0]); maxX = Math.max(maxX, q[0]); minY = Math.min(minY, q[1]); maxY = Math.max(maxY, q[1]); });
+    ok.forEach(function (xy) { xy.forEach(function (q) { minX = Math.min(minX, q[0]); maxX = Math.max(maxX, q[0]); minY = Math.min(minY, q[1]); maxY = Math.max(maxY, q[1]); }); });
     var spanX = maxX - minX, spanY = maxY - minY;
     if (!(spanX > 0 || spanY > 0)) return null;
-    var scale = Math.min(spanX > 0 ? (w - 2 * pad) / spanX : Infinity, spanY > 0 ? (h - 2 * pad) / spanY : Infinity);
-    var offX = (w - spanX * scale) / 2, offY = (h - spanY * scale) / 2;
-    var out = xy.map(function (q) { return [Math.round(((q[0] - minX) * scale + offX) * 10) / 10, Math.round(((q[1] - minY) * scale + offY) * 10) / 10]; });
-    return { d: 'M' + out.map(function (q) { return q[0] + ',' + q[1]; }).join('L'), start: out[0], end: out[out.length - 1] };
+    var fit = Math.min(spanX > 0 ? (w - 2 * pad) / spanX : Infinity, spanY > 0 ? (h - 2 * pad) / spanY : Infinity);
+    var scale = Math.min(fit, 256 * Math.pow(2, MAP_MAX_ZOOM) * 1.4);
+    var z = Math.max(0, Math.min(MAP_MAX_ZOOM, Math.round(Math.log(scale / 256) / Math.LN2)));
+    var left = (minX + maxX) / 2 - w / 2 / scale, top = (minY + maxY) / 2 - h / 2 / scale;
+    function r(v) { return Math.round(v * 10) / 10; }
+    function at(q) { return [r((q[0] - left) * scale), r((q[1] - top) * scale)]; }
+    var out = ok.map(function (xy) {
+      var pts = xy.map(at);
+      return { d: 'M' + pts.map(function (q) { return q[0] + ',' + q[1]; }).join('L'), start: pts[0], end: pts[pts.length - 1] };
+    });
+    var n = Math.pow(2, z), size = r(scale / n + 0.4), tiles = [];
+    for (var ty = Math.max(0, Math.floor(top * n)); ty < Math.min(n, (top + h / scale) * n); ty++) {
+      for (var tx = Math.floor(left * n); tx < (left + w / scale) * n; tx++) {
+        var p = at([tx / n, ty / n]), x = ((tx % n) + n) % n;
+        tiles.push({ key: z + '/' + x + '/' + ty, left: p[0], top: p[1], size: size });
+      }
+    }
+    return { lines: out, tiles: tiles };
   }
-  /* Out and about: up to two of the week's routes drawn on their own, the longest first, no map under them. */
-  var ROUTE_W = 760, ROUTE_H = 520;
-  function routes(a) {
-    var withRoute = activityItems(a).filter(function (x) { return routePath(x.route, ROUTE_W, ROUTE_H, 40); });
-    if (!withRoute.length) return null;
+  /* The tiles under a map as positioned pictures (percentages of w by h), only when every one of them loaded: half a
+     map is worse than none. */
+  function tilesHtml(m, w, h, tiles) {
+    if (!tiles || !m.tiles.length || !m.tiles.every(function (t) { return tiles[t.key]; })) return '';
+    function pc(v, of) { return Math.round(v / of * 10000) / 100 + '%'; }
+    return '<div class="r-map-tiles">' + m.tiles.map(function (t) {
+      return '<img alt="" src="' + esc(tiles[t.key]) + '" style="left:' + pc(t.left, w) + ';top:' + pc(t.top, h) + ';width:' + pc(t.size, w) + ';height:' + pc(t.size, h) + '">';
+    }).join('') + '</div>';
+  }
+  function mapCredit(html) { return html ? '<span class="r-map-credit">© OpenStreetMap contributors</span>' : ''; }
+
+  /* Out and about: up to two of the week's routes, the longest first, each on its own street map when the tiles came. */
+  var ROUTE_W = 760, ROUTE_H = 520, ROUTE_PAD = 40;
+  function routesShown(a) {
+    var withRoute = activityItems(a).filter(function (x) { return routeMap([x.route], ROUTE_W, ROUTE_H, ROUTE_PAD); });
     withRoute.sort(function (x, y) { return (num(y.km) ? y.km : 0) - (num(x.km) ? x.km : 0); });
-    var html = '<div class="r-routes">' + withRoute.slice(0, 2).map(function (x, n) {
-      var p = person(x.who), r = routePath(x.route, ROUTE_W, ROUTE_H, 40), bits = [x.day];
+    return withRoute.slice(0, 2);
+  }
+  function routes(a, tiles) {
+    var shown = routesShown(a);
+    if (!shown.length) return null;
+    var html = '<div class="r-routes">' + shown.map(function (x, n) {
+      var p = person(x.who), m = routeMap([x.route], ROUTE_W, ROUTE_H, ROUTE_PAD), l = m.lines[0], bits = [x.day], under = tilesHtml(m, ROUTE_W, ROUTE_H, tiles);
       if (num(x.km) && x.km > 0) bits.push(km(x.km));
       if (num(x.minutes) && x.minutes > 0) bits.push(minutes(x.minutes));
-      return '<div class="r-route r-step"' + delay(0.3 + n * 0.25) + '><svg class="r-route-map ' + p.cls + '" viewBox="0 0 ' + ROUTE_W + ' ' + ROUTE_H + '" aria-hidden="true">' +
-        '<path d="' + r.d + '"/><circle class="r-route-start" cx="' + r.start[0] + '" cy="' + r.start[1] + '" r="14"/>' +
-        '<circle class="r-route-end" cx="' + r.end[0] + '" cy="' + r.end[1] + '" r="14"/></svg>' +
+      return '<div class="r-route r-step"' + delay(0.3 + n * 0.25) + '><div class="r-route-map' + (under ? ' r-on-map' : '') + '">' + under +
+        '<svg class="' + p.cls + '" viewBox="0 0 ' + ROUTE_W + ' ' + ROUTE_H + '" aria-hidden="true">' +
+        '<path class="r-route-halo" d="' + l.d + '"/><path d="' + l.d + '"/><circle class="r-route-start" cx="' + l.start[0] + '" cy="' + l.start[1] + '" r="14"/>' +
+        '<circle class="r-route-end" cx="' + l.end[0] + '" cy="' + l.end[1] + '" r="14"/></svg>' + mapCredit(under) + '</div>' +
         '<p class="r-route-name"><span class="' + p.cls + '">' + esc(p.name) + '</span> · ' + esc(str(x.name) || capital(x.kind)) + '</p>' +
         '<p class="r-route-what">' + esc(bits.join(' · ')) + '</p></div>';
     }).join('') + '</div>';
     return { icon: 'mapMarkerPath', label: 'Out and about', html: html, htmlSteps: true, cls: 'r-widecard r-routecard', ms: 6000 };
+  }
+
+  /* Where we went: the last four weeks' routes (month_routes) together on one map, in each person's colour, with how
+     many and how far each. */
+  var MONTH_W = 1720, MONTH_H = 540, MONTH_PAD = 48;
+  function monthItems(m) {
+    return ((m && m.items) || []).filter(function (x) { return x && person(x.who) && routeMap([x.route], 10, 10, 0); });
+  }
+  function monthRoutes(m, tiles) {
+    var items = monthItems(m);
+    if (items.length < 3) return null;
+    var map = routeMap(items.map(function (x) { return x.route; }), MONTH_W, MONTH_H, MONTH_PAD);
+    var under = tilesHtml(map, MONTH_W, MONTH_H, tiles);
+    var paths = items.map(function (x, n) { return '<path class="' + person(x.who).cls + '" d="' + map.lines[n].d + '"/>'; }).join('');
+    var legend = P.map(function (p) {
+      var mine = items.filter(function (x) { return person(x.who) === p; });
+      if (!mine.length) return '';
+      var dist = mine.reduce(function (t, x) { return t + (num(x.km) && x.km > 0 ? x.km : 0); }, 0);
+      return '<span><b class="' + p.cls + '">' + esc(p.name) + '</b> ' + esc(mine.length + ' ' + plural(mine.length, 'route', 'routes') + (dist > 0 ? ' · ' + km(dist) : '')) + '</span>';
+    }).join('');
+    var html = '<div class="r-month r-step"' + delay(0.3) + '><div class="r-month-map' + (under ? ' r-on-map' : '') + '">' + under +
+      '<svg viewBox="0 0 ' + MONTH_W + ' ' + MONTH_H + '" aria-hidden="true">' + paths + '</svg>' + mapCredit(under) + '</div>' +
+      '<p class="r-month-legend">' + legend + '</p></div>';
+    return { icon: 'mapMarkerPath', label: 'Where we went', html: html, htmlSteps: true, sub: 'The last four weeks', cls: 'r-widecard r-monthcard', ms: 6500 };
+  }
+
+  /* Every tile the map cards would draw, as 'z/x/y', so the app can fetch them before the recap starts. */
+  function mapTiles(stats) {
+    var s = stats || {}, keys = [];
+    function add(m) { if (m) m.tiles.forEach(function (t) { if (keys.indexOf(t.key) < 0) keys.push(t.key); }); }
+    setPeople(s.people);
+    routesShown(s.activities).forEach(function (x) { add(routeMap([x.route], ROUTE_W, ROUTE_H, ROUTE_PAD)); });
+    var items = monthItems(s.month_routes);
+    if (items.length >= 3) add(routeMap(items.map(function (x) { return x.route; }), MONTH_W, MONTH_H, MONTH_PAD));
+    return keys;
   }
 
   /* Restless nights: only the notable one, the most restless night or a week nobody got up. */
@@ -743,7 +812,8 @@
       goalsDuel(s.goals),
       gymCard(s.gym),
       activities(s.activities),
-      routes(s.activities),
+      routes(s.activities, data.tiles),
+      monthRoutes(s.month_routes, data.tiles),
       sleepDuel(s.sleep),
       restless(s.restless),
       showerDuel(s.showers),
@@ -935,5 +1005,5 @@
     };
   }
 
-  window.HouseRecap = { build: build, play: play, routePath: routePath };
+  window.HouseRecap = { build: build, play: play, routeMap: routeMap, mapTiles: mapTiles };
 })();

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.6.0
+
+- Recap: "Out and about" draws each route on a street map: OpenStreetMap tiles through Home Assistant's map tiles proxy
+  (2026.10 and later), with the token HA hands out for it, darkened to match. They are fetched before the recap starts;
+  a map shows only when all its tiles came, else the line is drawn alone as before. `recap.street_maps: false` turns
+  them off.
+- Recap: `month_routes`, "Where we went": the last four weeks' routes together on one map, in each person's colour,
+  with how many routes and how far each.
+
 ## 1.5.0
 
 - Home follows the house's living-room tablet: the room's name and a short line, one notice row (`notices`) with its
